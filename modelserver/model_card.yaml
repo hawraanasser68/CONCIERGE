@@ -1,0 +1,49 @@
+# Owner C
+# Fill in real values after training. SHA-256 fields are enforced at startup — modelserver exits(1) on mismatch.
+# deployed_model must be "classical" or "dl_onnx" — llm_zeroshot is never deployed.
+
+classifier:
+  task: "5-class intent classification: spam, faq, lead, escalate, ambiguous"
+  dataset: "TODO: name + URL"
+  dataset_sha256: "TODO: hex"
+  split: "80/20, seed=42"
+  results:
+    classical:
+      macro_f1: 0.0
+      per_class_f1:
+        spam: 0.0
+        faq: 0.0
+        lead: 0.0
+        escalate: 0.0
+        ambiguous: 0.0
+      latency_p50_ms: 0
+      latency_p99_ms: 0
+    dl_onnx:
+      macro_f1: 0.0
+      per_class_f1:
+        spam: 0.0
+        faq: 0.0
+        lead: 0.0
+        escalate: 0.0
+        ambiguous: 0.0
+      latency_p50_ms: 0
+      latency_p99_ms: 0
+    llm_zeroshot:
+      macro_f1: 0.0
+      per_class_f1:
+        spam: 0.0
+        faq: 0.0
+        lead: 0.0
+        escalate: 0.0
+        ambiguous: 0.0
+      cost_per_1000: 0.0
+  deployed_model: "classical"
+  deployed_reason: "TODO: one line justification"
+  artifact_path: "artifacts/classical_model.joblib"
+  artifact_sha256: "TODO: hex"
+
+embedding:
+  model: "BAAI/bge-small-en-v1.5"
+  artifact_path: "artifacts/bge_small.onnx"
+  artifact_sha256: "TODO: hex"
+  vector_dim: 768

@@ -1,0 +1,24 @@
+# Owner D
+# Committed Day 1 with placeholder values.
+# Rule: thresholds can only go UP as real numbers land. Never lower a threshold to make CI pass.
+# redteam.block_rate is locked at 1.0 from Day 1 — never change this.
+
+classifier:
+  macro_f1: 0.0             # raise to real value after Day 2 training
+
+agent:
+  tool_accuracy: 0.0        # raise after agent wired (Day 3)
+
+rag:
+  hit_at_5: 0.0             # raise after RAG functional (Day 2-3)
+  faithfulness: 0.0
+  answer_relevancy: 0.0
+
+redteam:
+  block_rate: 1.0           # LOCKED — 100% from Day 1, never lower this
+
+redaction:
+  leak_rate: 0.0            # any raw PII or secret in response/logs fails CI
+
+widget:
+  bundle_size_kb_gzipped: 100   # never increase this
