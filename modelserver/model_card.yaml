@@ -1,49 +1,136 @@
 # Owner C
-# Fill in real values after training. SHA-256 fields are enforced at startup — modelserver exits(1) on mismatch.
-# deployed_model must be "classical" or "dl_onnx" — llm_zeroshot is never deployed.
+# Artifact hashes below were verified against files copied from
+# _incoming_ml_export/concierge_classifier_team_export on 2026-05-26.
 
 classifier:
   task: "5-class intent classification: spam, faq, lead, escalate, ambiguous"
-  dataset: "TODO: name + URL"
-  dataset_sha256: "TODO: hex"
-  split: "80/20, seed=42"
+  dataset: "concierge_router_dataset"
+  dataset_sources:
+    - name: "bitext_customer_support"
+      url: "pending: source URL not present in export"
+      rows: 3878
+    - name: "deepset_prompt_injections"
+      url: "pending: source URL not present in export"
+      rows: 203
+    - name: "handwritten_acme_bloom"
+      url: "internal handwritten adaptation rows"
+      rows: 138
+  dataset_sha256: "d0ab7d96ea74fdfc01070018af20f470686b8ebe1c84a5120d00c3ca9ebd65c3"
+  split: "Public rows stratified 70/15/15 into train/val/test. Handwritten train/adaptation rows added only to train. Product golden rows kept separate and never trained on."
+  split_seed: 42
+  split_artifacts:
+    train_sha256: "f0f1d615bc803e94f17b8dc542f7829e820d990b7a51e184192c16c7ab3d0f25"
+    val_sha256: "555085f294d55680363a96325e9e913dca7de916a7358c732dc7bf16fb352f39"
+    test_sha256: "48981df5f8126c8a68812a2d0af0cc90c6cb8979937b1d7c030d8b9c2f708ef1"
+    product_final_golden_sha256: "aa563c050bbe2b071fcfda8159b400040faa3967f72d767c265148c0a1b80314"
+  label_mapping:
+    internal_to_contract:
+      spam_or_abuse: "spam"
+      spam: "spam"
+      question: "faq"
+      lead: "lead"
+      escalate: "escalate"
+      unknown_or_agent: "ambiguous"
   results:
     classical:
-      macro_f1: 0.0
+      macro_f1: 0.9835891667156265
       per_class_f1:
-        spam: 0.0
-        faq: 0.0
-        lead: 0.0
-        escalate: 0.0
-        ambiguous: 0.0
-      latency_p50_ms: 0
-      latency_p99_ms: 0
+        spam: 0.9830508474576272
+        faq: 0.9896193771626297
+        lead: 0.9657534246575342
+        escalate: 0.9829351535836177
+        ambiguous: 0.9965870307167235
+      latency_p50_ms: null
+      latency_p99_ms: null
+      latency_avg_ms_per_row: 0.18075524632961032
+      accuracy: 0.9836867862969005
+      weighted_f1: 0.9837481593826937
+      experimental_colab_threshold: 0.75
+      wrong_direct_routes:
+        test: 0
+        product_threshold_set: 0
+        product_final_golden: 0
+      direct_coverage_pct:
+        test: 0.8743882544861338
+        product_threshold_set: 0.25806451612903225
+        product_final_golden: 0.28
+      product_final_golden:
+        macro_f1: 0.7999806076276665
+        per_class_f1:
+          spam: 0.75
+          faq: 0.8
+          lead: 0.7692307692307693
+          escalate: 0.8235294117647058
+          ambiguous: 0.8571428571428571
+        accuracy: 0.8
+        weighted_f1: 0.8020943762120233
+        direct_coverage_pct: 0.28
+        wrong_direct_routes: 0
     dl_onnx:
-      macro_f1: 0.0
+      macro_f1: 0.9903826169107226
       per_class_f1:
-        spam: 0.0
-        faq: 0.0
-        lead: 0.0
-        escalate: 0.0
-        ambiguous: 0.0
-      latency_p50_ms: 0
-      latency_p99_ms: 0
+        spam: 1.0
+        faq: 0.9931506849315068
+        lead: 0.9794520547945206
+        escalate: 0.9793103448275862
+        ambiguous: 1.0
+      latency_p50_ms: null
+      latency_p99_ms: null
+      latency_avg_ms_per_row: 0.006596557912099249
+      accuracy: 0.9885807504078303
+      weighted_f1: 0.9885802880588354
+      experimental_colab_threshold: 0.75
+      wrong_direct_routes:
+        test: 2
+        validation: 2
+        product_final_golden: 3
+      direct_coverage_pct:
+        test: 0.9690048939641109
+        validation: 0.9656862745098039
+        product_final_golden: 0.54
+      product_final_golden:
+        macro_f1: 0.7201562998405104
+        per_class_f1:
+          spam: 0.6666666666666666
+          faq: 0.7272727272727273
+          lead: 0.72
+          escalate: 0.75
+          ambiguous: 0.7368421052631579
+        accuracy: 0.72
+        weighted_f1: 0.72176331738437
+        direct_coverage_pct: 0.54
+        wrong_direct_routes: 3
     llm_zeroshot:
-      macro_f1: 0.0
+      status: "pending"
+      macro_f1: null
       per_class_f1:
-        spam: 0.0
-        faq: 0.0
-        lead: 0.0
-        escalate: 0.0
-        ambiguous: 0.0
-      cost_per_1000: 0.0
+        spam: null
+        faq: null
+        lead: null
+        escalate: null
+        ambiguous: null
+      cost_per_1000: null
+      note: "No LLM zero-shot metrics artifact was present in _incoming_ml_export."
   deployed_model: "classical"
-  deployed_reason: "TODO: one line justification"
+  deployed_reason: "Classical ships because it matched strong public test performance while preserving zero wrong direct routes on both the threshold-selection set and the final product golden set; the DL baseline produced high-confidence wrong direct routes."
   artifact_path: "artifacts/classical_model.joblib"
-  artifact_sha256: "TODO: hex"
+  artifact_sha256: "4654f9e27bb5aac951db311cef0754ff9c094776dd12661e3cf21bab9ee63831"
+  dl_artifact:
+    artifact_path: "artifacts/dl_model.onnx"
+    artifact_sha256: "4f107b76deceaf83735475881029b853187c51e41ada8b866b7e4710c03bf556"
+    auxiliary_artifacts:
+      - path: "artifacts/dl_model.onnx.data"
+        sha256: "8943dc03173ee493ef33da44df9e6be62777c6b6d86468f5f2cbb4044524b195"
+      - path: "artifacts/dl_hashing_vectorizer.joblib"
+        sha256: "a2559a72ec4ea445a19cc96e645500d9cc41e751c511b2f5f1c267e07ac33c9f"
+  runtime_serving_threshold: 0.80
+  experimental_colab_threshold: 0.75
+  fallback_rule: "At runtime, return the predicted intent only when confidence is 0.80 or higher. If confidence is below 0.80, return ambiguous and route to the LLM agent."
 
 embedding:
   model: "BAAI/bge-small-en-v1.5"
   artifact_path: "artifacts/bge_small.onnx"
-  artifact_sha256: "TODO: hex"
+  artifact_sha256: "pending"
   vector_dim: 768
+  status: "pending"
+  note: "BGE ONNX export was not present in _incoming_ml_export, so /embed currently returns a 768-zero stub for contract unblocking only. It is not suitable for production retrieval quality until a real hosted embedding path or BGE ONNX artifact is selected."

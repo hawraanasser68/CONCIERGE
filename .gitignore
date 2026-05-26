@@ -1,4 +1,5 @@
 docs - do not commit/
+_incoming_ml_export/
 
 # Python
 .venv/
@@ -6,3 +7,5 @@ backend/.venv/
 **/__pycache__/
 *.pyc
 .pytest_cache/
+**/.pytest_cache/
+*.zip

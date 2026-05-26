@@ -1,0 +1,6 @@
+,pred_spam,pred_question,pred_lead,pred_escalate,pred_unknown_or_agent
+true_spam,6,0,1,1,0
+true_question,1,8,0,1,0
+true_lead,1,1,10,0,0
+true_escalate,0,0,1,7,0
+true_unknown_or_agent,0,1,2,0,9

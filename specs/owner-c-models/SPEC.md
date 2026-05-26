@@ -41,7 +41,7 @@ modelserver/
   app.py                           ← FastAPI: /classify, /embed, /health
   model_card.yaml                  ← task, dataset hash, three results, artifact SHA-256
   artifacts/
-    .gitkeep                       ← artifacts gitignored; mounted in docker-compose or CI
+    .gitkeep                       ← large artifacts ignored; see commit-policy exception below
   notebooks/
     train_classifier_classical.ipynb
     train_classifier_dl_onnx.ipynb
@@ -92,6 +92,12 @@ Owner C does NOT write:
 - `admin/`
 - `widget/`
 - `docker-compose.yml`
+
+### Artifact Commit Policy Exception
+
+The original Owner C design assumed runtime artifacts would be mounted in docker-compose or CI and ignored by git. For bootcamp reproducibility and fresh-clone demo readiness, this repo intentionally allows committing small SHA-pinned classifier artifacts required by the modelserver, including the deployed classical joblib artifact and exported DL ONNX comparison baseline.
+
+Still ignored and not committed: raw datasets, Colab export folders, notebook caches, secrets, zip files, and large/generated artifacts that are not needed for a lean fresh-clone demo.
 
 ---
 
