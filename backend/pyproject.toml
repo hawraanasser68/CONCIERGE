@@ -21,6 +21,7 @@ dependencies = [
 
     # ── Config ────────────────────────────────────────────────────────────────
     "pydantic-settings>=2.2.0",     # typed env var config with extra="forbid"
+    "pydantic[email]>=2.0.0",       # EmailStr validation for tenant provisioning
 
     # ── Auth ──────────────────────────────────────────────────────────────────
     "fastapi-users[sqlalchemy]>=13.0.0",  # login, register, JWT issuance
