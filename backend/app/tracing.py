@@ -41,5 +41,8 @@ def setup_tracing(app, engine, otlp_endpoint: str) -> None:
     # Auto-instrument HTTP requests
     FastAPIInstrumentor.instrument_app(app)
 
-    # Auto-instrument DB queries — engine is passed in after lifespan creates it
-    SQLAlchemyInstrumentor().instrument(engine=engine)
+    # Auto-instrument DB queries.
+    # Must use engine.sync_engine — SQLAlchemy's async engine blocks direct event
+    # listener attachment. The sync_engine unwraps the async layer; all async DB
+    # calls still work normally, this only affects where the tracing hooks attach.
+    SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)

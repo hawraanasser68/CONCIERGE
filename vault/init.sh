@@ -29,8 +29,8 @@ vault secrets enable -version=2 -path=secret kv 2>/dev/null || true
 # Random 32-byte hex tokens. Owner C's modelserver and guardrails read these
 # to validate that inbound calls come from the backend, not from the internet.
 
-MODELSERVER_TOKEN=$(openssl rand -hex 32)
-GUARDRAILS_TOKEN=$(openssl rand -hex 32)
+MODELSERVER_TOKEN=$(head -c 32 /dev/urandom | xxd -p)
+GUARDRAILS_TOKEN=$(head -c 32 /dev/urandom | xxd -p)
 
 vault kv put secret/svc/modelserver token="${MODELSERVER_TOKEN}"
 echo "[vault-init] secret/svc/modelserver seeded."
@@ -42,7 +42,7 @@ echo "[vault-init] secret/svc/guardrails seeded."
 # HS256 secret for signing per-widget JWTs (1h TTL).
 # Owner D's loader POSTs to /api/v1/widget/token; this key signs the response.
 
-WIDGET_SIGNING_KEY=$(openssl rand -hex 32)
+WIDGET_SIGNING_KEY=$(head -c 32 /dev/urandom | xxd -p)
 vault kv put secret/widget/signing_key key="${WIDGET_SIGNING_KEY}"
 echo "[vault-init] secret/widget/signing_key seeded."
 

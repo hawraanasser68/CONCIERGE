@@ -17,9 +17,9 @@ Create Date: 2026-05-26
 
 import uuid
 
+import bcrypt
 import sqlalchemy as sa
 from alembic import op
-from passlib.context import CryptContext
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
 revision = "0001"
@@ -34,9 +34,9 @@ TENANT_A_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 TENANT_B_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 
 # Dev-only seed password. Change via the admin UI before any real use.
-# bcrypt is used here to match the fastapi-users password helper configured in auth/users.py.
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
-_DEV_HASH = _pwd.hash("devpassword")
+# Using bcrypt directly — passlib 1.7.4 relies on bcrypt.__about__ which was
+# removed in bcrypt 4.0, causing a crash when bcrypt 5.x is installed.
+_DEV_HASH = bcrypt.hashpw(b"devpassword", bcrypt.gensalt(12)).decode()
 
 # ── Tables with RLS ─────────────────────────────────────────────────────────────
 
