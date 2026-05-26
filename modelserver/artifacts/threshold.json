@@ -1,0 +1,8 @@
+{
+  "deployed_model": "classical",
+  "runtime_serving_threshold": 0.8,
+  "runtime_threshold_source": "specs/shared/contracts/INTERFACES.md",
+  "experimental_colab_threshold": 0.75,
+  "selection_basis": "0.75 was the threshold selected in the Colab export from the product_threshold_set; it is recorded for experiment provenance only.",
+  "runtime_rule": "At runtime, return the predicted intent only when confidence is 0.80 or higher. If confidence is below 0.80, return ambiguous and route to the LLM agent."
+}

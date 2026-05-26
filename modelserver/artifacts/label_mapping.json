@@ -1,0 +1,43 @@
+{
+  "internal_labels": [
+    "spam_or_abuse",
+    "spam",
+    "question",
+    "lead",
+    "escalate",
+    "unknown_or_agent"
+  ],
+  "contract_labels": [
+    "spam",
+    "faq",
+    "lead",
+    "escalate",
+    "ambiguous"
+  ],
+  "internal_to_contract": {
+    "spam_or_abuse": "spam",
+    "spam": "spam",
+    "question": "faq",
+    "lead": "lead",
+    "escalate": "escalate",
+    "unknown_or_agent": "ambiguous"
+  },
+  "contract_to_internal_equivalents": {
+    "spam": [
+      "spam",
+      "spam_or_abuse"
+    ],
+    "faq": [
+      "question"
+    ],
+    "lead": [
+      "lead"
+    ],
+    "escalate": [
+      "escalate"
+    ],
+    "ambiguous": [
+      "unknown_or_agent"
+    ]
+  }
+}
