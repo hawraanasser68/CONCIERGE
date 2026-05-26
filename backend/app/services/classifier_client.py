@@ -1,4 +1,14 @@
-# Owner B
+# Owner B — backend/app/services/classifier_client.py
+#
+# HTTP client for POST /classify on the model server (Owner C).
+# Fails OPEN on any error (5xx, timeout, connection failure): returns
+# ClassifyResult(intent="ambiguous", confidence=0.0) so a downed classifier
+# degrades to the agent path rather than blocking visitors entirely.
+#
+# Usage (from router.py):
+#   classifier = get_classifier_client(request)
+#   result = await classifier.classify(text, tenant_id)
+
 import uuid
 from dataclasses import dataclass
 

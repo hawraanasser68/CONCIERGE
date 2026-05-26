@@ -1,4 +1,17 @@
-# Owner B
+# Owner B — backend/app/services/embeddings_client.py
+#
+# HTTP client for POST /embed on the model server (BGE-small ONNX, Owner C).
+# Used by the RAG retrieval path (single embed per query) and the indexing
+# pipeline (batch via concurrent single calls — the modelserver has no batch
+# endpoint; see INTERFACES.md §2 which defines only POST /embed).
+# Errors propagate to the caller — no fail-open/closed policy at this layer.
+#
+# Usage:
+#   client = get_embeddings_client(request)
+#   vector = await client.embed(text)           # single
+#   vectors = await client.embed_batch(texts)   # concurrent single calls
+
+import asyncio
 from dataclasses import dataclass
 
 import structlog
@@ -31,14 +44,12 @@ class EmbeddingsClient:
         return response.json()["embedding"]
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Embed multiple texts in one request. Returns embeddings in the same order."""
-        response = await self._http.post(
-            f"{_MODELSERVER_URL}/embed/batch",
-            json={"texts": texts},
-            headers={"Authorization": f"Bearer {self._token}"},
-        )
-        response.raise_for_status()
-        return response.json()["embeddings"]
+        """Embed multiple texts concurrently (one POST /embed per text).
+
+        Preserves input order. The modelserver exposes only POST /embed —
+        there is no batch endpoint (see INTERFACES.md).
+        """
+        return list(await asyncio.gather(*(self.embed(t) for t in texts)))
 
 
 def get_embeddings_client(request: Request) -> EmbeddingsClient:
