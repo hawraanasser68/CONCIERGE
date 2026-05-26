@@ -325,6 +325,12 @@ async def capture_lead(
     # 5. return { lead_id, captured: true }
 ```
 
+⚠️ **Column name mapping:** The `Lead` SQLAlchemy model (defined by Owner A) uses `visitor_name` — NOT `name`. When inserting, always write:
+```python
+Lead(visitor_name=name, contact=contact, intent=intent, tenant_id=tenant_id, session_id=session_id)
+```
+Writing `Lead(name=name, ...)` will silently fail or raise a DB error.
+
 `tenant_id` is injected from the request context. The LLM's tool call args do not include a `tenant_id` field — there is no field in the tool schema for it. This is architectural, not a guard.
 
 ### escalate — `backend/app/tools/escalate.py`
@@ -338,6 +344,11 @@ async def escalate(
 ) -> dict:
     # insert into escalations
     # return { escalated: true, ticket_id }
+```
+
+⚠️ **Column name mapping:** The `Escalation` SQLAlchemy model (defined by Owner A) uses `session_id` — NOT `conversation_id`. When inserting, always write:
+```python
+Escalation(session_id=conversation_id, reason=reason, tenant_id=tenant_id)
 ```
 
 ---
@@ -354,13 +365,18 @@ PUT    /api/v1/cms/pages/{id}           ← update page → trigger background r
 DELETE /api/v1/cms/pages/{id}           ← delete page + its chunks
 POST   /api/v1/cms/pages/{id}/publish   ← toggle published
 
-GET    /api/v1/cms/agent-config         ← get tenant agent config
-PUT    /api/v1/cms/agent-config         ← update agent config
 ```
 
-All require `tenant_admin` role. All scoped by `get_current_tenant_id`.
+All CMS page routes require `tenant_admin` role and are scoped by `get_current_tenant_id`.
 
-**Note:** `GET /api/v1/admin/leads`, `GET /api/v1/admin/escalations`, `PATCH /api/v1/admin/escalations/{id}`, and all widget management endpoints live in `routes/tenant_admin.py`, which is **entirely owned by Owner A**. Owner B owns only `routes/cms.py`. Never add routes to `tenant_admin.py`.
+**agent-config endpoints live in `routes/tenant_admin.py` (Owner A), NOT in cms.py:**
+```
+GET    /api/v1/admin/agent-config       ← get tenant agent config (Owner A's route)
+PUT    /api/v1/admin/agent-config       ← update agent config (Owner A's route)
+```
+Owner B imports `agent_config_repo` from `app.repositories.agent_config_repo` to read config in `agent.py`. Owner B does NOT write these routes.
+
+**Note:** `GET /api/v1/admin/leads`, `GET /api/v1/admin/escalations`, `PATCH /api/v1/admin/escalations/{id}`, widget management, AND agent-config all live in `routes/tenant_admin.py`, which is **entirely owned by Owner A**. Owner B owns only `routes/cms.py`. Never add routes to `tenant_admin.py`.
 
 ### Embedding Pipeline
 

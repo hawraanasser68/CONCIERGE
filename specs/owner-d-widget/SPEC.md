@@ -259,7 +259,7 @@ Owner D writes a CI test: use `httpx` (no CORS) to call the token exchange with 
 
 ### Page: Agent & Guardrail Config (`admin/pages/3_guardrails.py`)
 
-- Current config: `GET /api/v1/cms/agent-config`
+- Current config: `GET /api/v1/admin/agent-config`  ← note: /admin/ not /cms/
 - Editable fields:
   - `persona_name` (text input)
   - `persona_description` (textarea)
@@ -267,7 +267,7 @@ Owner D writes a CI test: use `httpx` (no CORS) to call the token exchange with 
   - `blocked_topics` (text area, comma-separated)
   - `allowed_topics` (text area)
   - `max_tool_iterations` (number input, 1–10)
-- Save: `PUT /api/v1/cms/agent-config`
+- Save: `PUT /api/v1/admin/agent-config`  ← note: /admin/ not /cms/
 - Note visible to user: "Platform security rails (injection, jailbreak detection, PII protection) are always active and cannot be modified here."
 
 ### Page: Leads (`admin/pages/4_leads.py`)
@@ -342,7 +342,7 @@ steps:
 
   - name: Two seeded tenants exist
     run: |
-      docker compose exec db psql -U postgres -c "SELECT count(*) FROM tenants;" | grep -E "^\s+2"
+      docker compose exec db psql -U concierge -d concierge -c "SELECT count(*) FROM tenants;" | grep -E "^\s+2"
 
   - name: Teardown
     if: always()
