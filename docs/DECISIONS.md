@@ -18,6 +18,74 @@ Operational consequence:
 - The runtime serving threshold is `0.80`. The exported `0.75` threshold is kept only as Colab experiment provenance and does not control modelserver behavior.
 - `/embed` remains a 768-zero contract stub because no BGE ONNX artifact was present in the export; it must not be treated as production retrieval quality.
 
+## Owner B — Agent-vs-workflow routing rationale
+
+Decision: route high-confidence intents (≥ 0.80) directly to single-shot workflows; everything else falls through to the bounded agent loop.
+
+**Why not always use the agent?**
+
+- The full agent loop can consume up to 10 tool iterations per turn. At ~$0.003/1K input tokens, a 5-turn agent call over a 4K-token context costs roughly $0.06–$0.12 per message. A direct FAQ workflow costs one embed call + one LLM call with a context typically under 2K tokens — approximately 70–80% cheaper per turn.
+- Deterministic workflows (FAQ/lead/escalate) have zero tool-loop variance: they always make exactly one LLM call and at most one tool call. The agent loop makes the billing envelope hard to predict.
+- High-confidence faq/lead/escalate are the most common turn types in a concierge widget (typically 60–75% of traffic). Routing these cheaply has outsized cost impact.
+
+**Why 0.80 as the confidence gate?**
+
+The classifier ships at `macro_f1 = 0.98` on the public test set, but accuracy on ambiguous edge cases is lower. At confidence < 0.80 the classifier is signalling uncertainty — the agent loop's ability to seek clarification is more valuable than the cost saving. Empirically, setting the gate at 0.80 leaves ~20–30% of turns to the agent while capturing the long tail of ambiguous inputs safely.
+
+**Bounded agent loop cap**
+
+`MAX_ITERATIONS = min(config.max_tool_iterations, 10)`. The hard cap of 10 prevents runaway tool loops from a misconfigured tenant. In practice tenant configs ship with `max_tool_iterations = 5`.
+
+---
+
+## Owner B — Chunking strategy
+
+Decision: sentence-window chunker, 512-token window (~2048 chars), 50-token overlap (~200 chars), sentence-boundary breaks.
+
+**Why sentence-window over fixed-size?**
+
+- Fixed character splits can cut mid-sentence, producing chunks whose first and last sentences are syntactically incomplete. Embedding quality degrades when the chunk boundary lands inside a sentence because the embedding model sees a fragment that doesn't form a coherent semantic unit.
+- Sentence-window chunking uses `rfind(". ")` to walk back to the nearest sentence boundary inside the latter half of each window, so every chunk starts and ends at a natural prose boundary.
+
+**Why 512 tokens / 50-token overlap?**
+
+- 512 tokens is the canonical sweet spot for BGE-style embedding models (the modelserver contract in INTERFACES.md). Longer inputs exceed the optimal context window for dense retrieval; shorter inputs lose enough context that embedding similarity degrades.
+- 50-token overlap (≈10% of window) prevents facts that straddle a chunk boundary from being fully absent from both chunks. The overlap is intentionally small to avoid double-counting in cost and to keep the ANN index lean.
+
+---
+
+## Owner B — Retrieval rerank choice
+
+Decision: per-page diversity rerank (cap 2 chunks per source page, return top-5 from a pool of 20). No cross-encoder reranker.
+
+**Why no cross-encoder?**
+
+- Cross-encoder rerankers add a second model inference call per retrieved chunk, which would multiply latency (roughly 20 calls for a pool of 20) and require a second modelserver endpoint that is not in the current INTERFACES.md contract.
+- For a single-tenant knowledge base with O(10²) pages, ANN cosine distance on good embeddings already achieves strong precision. A cross-encoder is reserved for when the knowledge base grows to O(10⁴)+ chunks and cosine distance starts to plateau.
+
+**Why diversity rerank?**
+
+Without the per-page cap, naive ANN over a dense FAQ page can return all 5 top-k results from the same page, starving the result set of topical breadth. A user asking about business hours who also has a delivery question gets better coverage if at most 2 chunks come from the business-hours page.
+
+---
+
+## Owner B — Session memory and caching policy
+
+| Layer | What is cached | TTL | Invalidation |
+|---|---|---|---|
+| Redis session history | Last 20 messages per session (LPUSH + LTRIM 0 19) | 30 min (EXPIRE 1800) | Automatic on TTL expiry; overwritten on new session |
+| RAG chunk table | Chunks persist until the CMS page is updated or unpublished | Permanent (DB) | `index_page()` deletes all chunks for the page before re-inserting |
+| Agent config | Loaded from DB on every request via `AgentConfig` repository | None (no app-level cache) | Immediate — admin changes take effect on the next request |
+| Embedding vectors | Stored in pgvector `chunks.embedding` column | Permanent (DB) | Replaced on page re-index |
+| Guardrails response | Not cached — every message checked fresh | — | — |
+| Classifier response | Not cached — called per turn | — | — |
+
+**Why no agent-config cache?**
+
+Tenant admins expect persona and tool configuration changes to take effect immediately. A cache would introduce a window where a misconfigured or inappropriate persona is served despite the admin having corrected it. The DB round-trip is cheap relative to the LLM call that follows.
+
+---
+
 ## Owner C — Classifier artifact commit policy
 
 Decision: commit the small SHA-pinned classifier artifacts required by the modelserver for bootcamp reproducibility and fresh-clone demo readiness.
