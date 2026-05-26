@@ -133,4 +133,4 @@ embedding:
   artifact_sha256: "pending"
   vector_dim: 768
   status: "pending"
-  note: "BGE ONNX export was not present in _incoming_ml_export, so /embed remains stub/pending until that artifact exists."
+  note: "BGE ONNX export was not present in _incoming_ml_export, so /embed currently returns a 768-zero stub for contract unblocking only. It is not suitable for production retrieval quality until a real hosted embedding path or BGE ONNX artifact is selected."

@@ -15,4 +15,4 @@ Operational consequence:
 - The deployed model remains `classical`.
 - The DL ONNX artifact stays in-repo as a documented comparison baseline, not as the default serving path.
 - The runtime serving threshold is `0.80`. The exported `0.75` threshold is kept only as Colab experiment provenance and does not control modelserver behavior.
-- `/embed` remains pending because no BGE ONNX artifact was present in the export.
+- `/embed` remains a 768-zero contract stub because no BGE ONNX artifact was present in the export; it must not be treated as production retrieval quality.
