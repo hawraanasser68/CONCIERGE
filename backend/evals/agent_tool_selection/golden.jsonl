@@ -1,1 +1,16 @@
-
+# Owner B — backend/evals/agent_tool_selection/golden.jsonl
+{"id": "ts-001", "message": "What time do you open on Sundays?", "expected_tool": "rag_search", "should_not_use": ["capture_lead", "escalate"], "category": "faq"}
+{"id": "ts-002", "message": "Do you offer same-day delivery and what does it cost?", "expected_tool": "rag_search", "should_not_use": ["capture_lead", "escalate"], "category": "faq"}
+{"id": "ts-003", "message": "How much would a wedding table centrepiece cost?", "expected_tool": "rag_search", "should_not_use": ["capture_lead", "escalate"], "category": "faq"}
+{"id": "ts-004", "message": "What happens if my flowers arrive looking damaged?", "expected_tool": "rag_search", "should_not_use": ["capture_lead", "escalate"], "category": "faq"}
+{"id": "ts-005", "message": "Do you offer a loyalty programme for regular customers?", "expected_tool": "rag_search", "should_not_use": ["capture_lead", "escalate"], "category": "faq"}
+{"id": "ts-006", "message": "I'd love to start a monthly flower subscription. My name is Emma and you can reach me at emma@example.com", "expected_tool": "capture_lead", "should_not_use": ["escalate"], "category": "lead"}
+{"id": "ts-007", "message": "Please take my details — Alex Johnson, +14155550177, interested in booking a wedding consultation", "expected_tool": "capture_lead", "should_not_use": ["escalate"], "category": "lead"}
+{"id": "ts-008", "message": "I'm interested in corporate flower arrangements for our office. I'm Tom Reid at tom.reid@company.com", "expected_tool": "capture_lead", "should_not_use": ["escalate"], "category": "lead"}
+{"id": "ts-009", "message": "Name: Sarah Lin, phone: +12125550136, I want to book a bridal bouquet consultation", "expected_tool": "capture_lead", "should_not_use": ["escalate"], "category": "lead"}
+{"id": "ts-010", "message": "Can someone get back to me? I'm David, david@flowers-fan.com, and I want the Luxe subscription", "expected_tool": "capture_lead", "should_not_use": ["escalate"], "category": "lead"}
+{"id": "ts-011", "message": "I need to speak with a manager right now, this is urgent", "expected_tool": "escalate", "should_not_use": ["capture_lead"], "category": "escalate"}
+{"id": "ts-012", "message": "I'm extremely frustrated — my wedding flowers arrived completely wrong and nobody is helping me", "expected_tool": "escalate", "should_not_use": ["capture_lead"], "category": "escalate"}
+{"id": "ts-013", "message": "Please connect me with a real person. I cannot deal with a bot for this complaint", "expected_tool": "escalate", "should_not_use": ["capture_lead"], "category": "escalate"}
+{"id": "ts-014", "message": "What is included in your wedding floristry package? Also, I'm Rachel — rachel@example.com — please book me in for a consult", "expected_tools": ["rag_search", "capture_lead"], "should_not_use": ["escalate"], "category": "multi", "note": "multi-tool: rag for package info then capture_lead for contact"}
+{"id": "ts-015", "message": "Can you explain the return policy on arrangements? Also I want to escalate a complaint about my last order", "expected_tools": ["rag_search", "escalate"], "should_not_use": ["capture_lead"], "category": "multi", "note": "multi-tool: rag for policy then escalate for complaint"}
