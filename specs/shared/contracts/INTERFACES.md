@@ -1,7 +1,7 @@
 # Shared Interface Contracts
 
 **Status: FROZEN — no changes without team discussion and updated date below**
-**Last frozen: 2026-05-26**
+**Last frozen: 2026-05-26** *(updated: widget validation step 4 — origin now checked against DB allowlist, not JWT claim)*
 
 These are the cross-owner API contracts. Every owner codes against these shapes exactly.
 If a contract must change, open a PR that updates this file first, get approval from all affected owners, then change the implementations.
@@ -157,12 +157,16 @@ Checked in this order — fail on first violation:
 1. JWT signature is valid (correct secret, correct algorithm)
 2. `exp` has not passed (clock skew tolerance: 30 seconds)
 3. `type` claim equals `"widget_session"`
-4. `origin` claim matches the incoming `Origin` header exactly — return HTTP 403 if mismatch
+4. `X-Session-Id` header matches the `session_id` JWT claim — return HTTP 400 if mismatch
 5. `widget_id` exists in the `widgets` table and `is_active = true`
-6. `tenant_id` claim matches `widgets.tenant_id` for the given `widget_id`
-7. The tenant exists and has `status = 'active'`
+6. Incoming `Origin` header is present in `widgets.allowed_origins` — return HTTP 403 if not found.
+   **Note:** the JWT `origin` claim is kept for audit trail only and is NOT re-validated here.
+   Chat requests come from the widget's serving domain, which differs from the host page origin
+   stored in the JWT at token-exchange time.
+7. `tenant_id` claim matches `widgets.tenant_id` for the given `widget_id`
+8. The tenant exists and has `status = 'active'`
 
-Any failure returns HTTP 401 (signature/expiry) or HTTP 403 (origin mismatch, inactive widget, suspended tenant).
+Any failure returns HTTP 400 (session mismatch), HTTP 401 (signature/expiry/inactive widget), or HTTP 403 (origin not allowed, suspended tenant).
 
 ### Token Exchange Request
 

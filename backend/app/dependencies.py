@@ -111,20 +111,24 @@ async def get_widget_session(
     # Steps 1-3: signature, expiry, type
     payload = verify_widget_jwt(token, signing_key)
 
-    # Step 4: origin claim must match the incoming Origin header
-    incoming_origin = request.headers.get("Origin", "")
-    if payload.get("origin") != incoming_origin:
-        raise HTTPException(status_code=403, detail="Origin mismatch")
-
-    # Step 5: X-Session-Id header must match the JWT claim (prevents session injection)
+    # Step 4: X-Session-Id header must match the JWT claim (prevents session injection)
     if payload.get("session_id") != x_session_id:
         raise HTTPException(status_code=400, detail="Session ID mismatch")
 
-    # Step 6: widget must exist and be active
+    # Step 5: widget must exist and be active
     widget_id = uuid.UUID(payload["widget_id"])
     widget = await session.get(Widget, widget_id)
     if not widget or not widget.is_active:
         raise HTTPException(status_code=401, detail="Widget not found or inactive")
+
+    # Step 6: incoming Origin must be in the widget's allowed_origins allowlist.
+    # We check the DB allowlist here (not the JWT origin claim) because chat requests
+    # originate from the widget's serving domain, which differs from the host page
+    # origin stored in the JWT at token-exchange time. The JWT claim is kept for
+    # audit purposes only.
+    incoming_origin = request.headers.get("Origin", "")
+    if incoming_origin not in widget.allowed_origins:
+        raise HTTPException(status_code=403, detail="Origin not allowed")
 
     # Step 7: tenant_id in JWT must match the widget's actual tenant
     if str(widget.tenant_id) != payload.get("tenant_id"):
