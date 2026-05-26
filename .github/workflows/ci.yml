@@ -24,7 +24,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install backend deps (uv sync --dev)
+        working-directory: backend
+        run: uv sync --dev
 
       - name: Install lint tooling
         run: pip install ruff mypy
@@ -34,6 +41,14 @@ jobs:
 
       - name: Mypy (backend)
         run: mypy backend/app/
+
+      - name: Pytest (backend integration tests; DB/Vault stubbed via dependency_overrides)
+        working-directory: backend
+        env:
+          # Settings(extra="forbid") requires DATABASE_URL even though tests stub
+          # the DB out. The URL is never connected to in unit/integration tests.
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
+        run: uv run pytest tests
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v3
