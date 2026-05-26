@@ -21,8 +21,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
 from app.dependencies import get_redis, get_session, get_widget_session
 from app.models.agent_config import AgentConfig
+from app.models.tenant import Tenant
 from app.repositories.agent_config_repo import agent_config_repo
 from app.services.classifier_client import ClassifierClient, get_classifier_client
 from app.services.cost_meter import record_classify_call
@@ -42,7 +45,7 @@ _OUTPUT_BLOCKED = "I'm sorry, I'm not able to provide that response. Please cont
 _ROUTING_ERROR = "I'm sorry, I encountered an issue processing your request. Please try again."
 
 
-def _load_system_prompt(agent_config: AgentConfig) -> str:
+def _load_system_prompt(agent_config: AgentConfig, tenant_name: str) -> str:
     """Read the agent system prompt template and fill in per-tenant variables."""
     try:
         with open("/app/prompts/system_agent.md") as f:
@@ -50,12 +53,12 @@ def _load_system_prompt(agent_config: AgentConfig) -> str:
         return template.format(
             persona_name=agent_config.persona_name,
             persona_description=agent_config.persona_description or "",
+            tenant_name=tenant_name,
         )
     except Exception:
-        # Fall back to a minimal prompt if the file is missing
         return (
-            f"You are {agent_config.persona_name}, a helpful AI assistant. "
-            "Be concise and professional."
+            f"You are {agent_config.persona_name}, a helpful AI assistant for "
+            f"{tenant_name}. Be concise and professional."
         )
 
 
@@ -115,7 +118,9 @@ async def send_message(
     if config is None:
         config = AgentConfig(tenant_id=tenant_id)  # in-memory defaults; no DB write
 
-    system_prompt = _load_system_prompt(config)
+    tenant_row = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    tenant_name = tenant_row.name if tenant_row else "this business"
+    system_prompt = _load_system_prompt(config, tenant_name)
 
     # ── 5. Persist user turn (redacted — PII stripped by guardrails) ──────────
     await append_message(
