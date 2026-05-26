@@ -3,7 +3,9 @@ import importlib
 from types import SimpleNamespace
 
 import pytest
+from fastapi.exceptions import RequestValidationError
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 
 def _load_module():
@@ -75,7 +77,7 @@ def test_check_input_redacts_secrets_and_pii():
     response = asyncio.run(module.check_input(payload, request, None))
 
     assert response["allowed"] is True
-    assert response["flagged_categories"] == []
+    assert response["flagged_categories"] == ["pii"]
     assert "[REDACTED-EMAIL]" in response["redacted_message"]
     assert "[REDACTED-PHONE]" in response["redacted_message"]
     assert "[REDACTED-ANTHROPIC-KEY]" in response["redacted_message"]
@@ -95,6 +97,28 @@ def test_check_output_redacts_secrets_and_pii():
     response = asyncio.run(module.check_output(payload, request, None))
 
     assert response["allowed"] is True
-    assert response["flagged_categories"] == []
+    assert response["flagged_categories"] == ["pii"]
     assert "[REDACTED-EMAIL]" in response["redacted_message"]
     assert "[REDACTED-GITHUBTOKEN]" in response["redacted_message"]
+
+
+def test_check_without_redaction_has_empty_flagged_categories():
+    module = _load_module()
+    request = _fake_request()
+    payload = _payload(module, "Normal support question", direction="input")
+
+    response = asyncio.run(module.check_input(payload, request, None))
+
+    assert response["allowed"] is True
+    assert response["flagged_categories"] == []
+    assert response["redacted_message"] == "Normal support question"
+
+
+def test_invalid_direction_returns_validation_error():
+    module = _load_module()
+
+    with pytest.raises(ValidationError):
+        _payload(module, "Normal support question", direction="sideways")
+
+    response = asyncio.run(module.request_validation_exception_handler(None, RequestValidationError([])))
+    assert response.status_code == 422

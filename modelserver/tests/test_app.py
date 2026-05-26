@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
+from fastapi.exceptions import RequestValidationError
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 
 @dataclass
@@ -129,6 +131,19 @@ def test_low_confidence_returns_ambiguous():
     response = asyncio.run(module.classify(payload, request, None))
 
     assert response.intent == "ambiguous"
+
+
+def test_classify_rejects_text_over_4000_characters_with_422_mapping():
+    module = _load_module()
+
+    with pytest.raises(ValidationError):
+        module.ClassifyRequest(
+            text="x" * 4001,
+            tenant_id="11111111-1111-1111-1111-111111111111",
+        )
+
+    response = asyncio.run(module.request_validation_exception_handler(None, RequestValidationError([])))
+    assert response.status_code == 422
 
 
 def test_embed_without_token_returns_401():

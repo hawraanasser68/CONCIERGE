@@ -7,6 +7,7 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 from uuid import UUID
 
 import hvac
@@ -29,7 +30,7 @@ class GuardrailsRequest(BaseModel):
     message: str
     tenant_id: UUID
     session_id: UUID
-    direction: str
+    direction: Literal["input", "output"]
 
 
 def configure_logging() -> None:
@@ -100,15 +101,17 @@ def _require_service_token(request: Request) -> None:
 
 def _build_response(payload: GuardrailsRequest) -> dict[str, object]:
     redacted_message = redact(payload.message)
+    flagged_categories = ["pii"] if redacted_message != payload.message else []
     LOGGER.info(
-        "guardrails_check tenant_id=%s session_id=%s direction=%s allowed=true flagged_count=0",
+        "guardrails_check tenant_id=%s session_id=%s direction=%s allowed=true flagged_count=%d",
         payload.tenant_id,
         payload.session_id,
         payload.direction,
+        len(flagged_categories),
     )
     return {
         "allowed": True,
-        "flagged_categories": [],
+        "flagged_categories": flagged_categories,
         "redacted_message": redacted_message,
     }
 

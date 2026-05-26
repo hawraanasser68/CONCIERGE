@@ -40,7 +40,7 @@ class LoadedClassifier:
 
 
 class ClassifyRequest(BaseModel):
-    text: str = Field(..., description="Raw visitor message")
+    text: str = Field(..., max_length=4000, description="Raw visitor message")
     tenant_id: UUID
 
     @model_validator(mode="after")

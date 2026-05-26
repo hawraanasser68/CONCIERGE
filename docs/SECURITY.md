@@ -100,6 +100,12 @@ That means:
 - no message should be treated as safe just because the sidecar is down
 - a sidecar outage is a security failure, not a graceful-degradation path
 
+## False-Positive Policy
+
+When a platform rail blocks content, the visitor should receive a generic refusal rather than internal category details. False positives should be logged only with safe metadata: `tenant_id`, `session_id`, flagged categories, and timing; never message content or PII.
+
+False-positive rate should be monitored and calibrated over time. Tenant rails may restrict behavior further, but they cannot weaken platform rails. Current guardrails are still stub/pass-through, so this section describes the target behavior for real rails rather than a completed NeMo policy implementation.
+
 ## Current Limitations
 
 The current state is intentionally lightweight:
