@@ -1,1 +1,17 @@
-<!-- Owner D -->
+<!DOCTYPE html>
+<!--
+  Owner D — iframe shell.
+  This document is loaded INSIDE the iframe that public/loader.js injects into the host page.
+  The host page never sees this HTML directly.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Concierge</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

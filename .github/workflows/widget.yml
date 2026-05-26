@@ -1,1 +1,49 @@
-# Owner D
+# Owner D — widget-specific CI: strict TypeScript + bundle build + size gate.
+# Bundle ceiling of 100KB gzipped is committed in eval_thresholds.yaml under widget.bundle_size_kb_gzipped
+# and enforced here. This number can only go DOWN — never raise it to make CI pass.
+
+name: widget
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  widget:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: widget
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: widget/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript strict check
+        run: pnpm tsc --noEmit --strict
+
+      - name: Build bundle
+        run: pnpm build
+
+      - name: Check bundle size (<100KB gzipped)
+        run: |
+          BUNDLE_SIZE=$(gzip -c dist/assets/*.js | wc -c)
+          echo "Bundle size: ${BUNDLE_SIZE} bytes gzipped (limit 102400)"
+          if [ "$BUNDLE_SIZE" -gt 102400 ]; then
+            echo "ERROR: widget bundle exceeds 100KB gzipped"
+            exit 1
+          fi
