@@ -12,7 +12,7 @@ import asyncio
 import os
 import uuid
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -28,8 +28,7 @@ if not DATABASE_URL:
 TENANT_A_ID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 TENANT_B_ID = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
-DEV_HASH = _pwd.hash("devpassword")
+DEV_HASH = bcrypt.hashpw(b"devpassword", bcrypt.gensalt(12)).decode()
 
 TENANTS = [
     {"id": TENANT_A_ID, "slug": "bloom-florista", "name": "Bloom Florista"},
