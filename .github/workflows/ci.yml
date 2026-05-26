@@ -1,1 +1,215 @@
-# Owner D
+# Owner D — main CI pipeline.
+# Job DAG: lint-and-typecheck → build-images → smoke-test → 5 parallel eval gates.
+# COMPOSE_PROJECT_NAME=ci-${{ github.run_id }} is set on every docker compose call
+# so concurrent CI runs on the same runner don't collide on container names or ports.
+# Eval scripts arrive in Phase 5 (D-024..D-028); until they land, the eval jobs no-op
+# but the DAG is wired so CI stays green from Day 1.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+env:
+  COMPOSE_PROJECT_NAME: ci-${{ github.run_id }}
+
+jobs:
+
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lint tooling
+        run: pip install ruff mypy
+
+      - name: Ruff
+        run: ruff check backend/ admin/ modelserver/ guardrails/
+
+      - name: Mypy (backend)
+        run: mypy backend/app/
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: widget/pnpm-lock.yaml
+
+      - name: Widget tsc (fast path; strict check is in widget.yml)
+        working-directory: widget
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm tsc --noEmit
+
+  build-images:
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env from example
+        run: cp .env.example .env
+
+      - name: Build all images
+        run: docker compose build --parallel
+
+      - name: Check modelserver image size (<500MB)
+        run: |
+          IMAGE_ID=$(docker compose images -q modelserver)
+          SIZE=$(docker image inspect "$IMAGE_ID" --format='{{.Size}}')
+          echo "modelserver image size: ${SIZE} bytes"
+          if [ "$SIZE" -gt 500000000 ]; then
+            echo "ERROR: modelserver image exceeds 500MB"
+            exit 1
+          fi
+
+  smoke-test:
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start stack
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait --timeout 180
+
+      - name: Health checks (backend, modelserver, guardrails, widget)
+        run: |
+          curl -fsS http://localhost:8000/health
+          curl -fsS http://localhost:8001/health
+          curl -fsS http://localhost:8002/health
+          curl -fsS http://localhost:3000/widget.js
+
+      - name: Migration applied (alembic at head)
+        run: docker compose exec -T backend alembic current | grep "(head)"
+
+      - name: Two seeded tenants exist
+        run: |
+          docker compose exec -T db \
+            psql -U concierge -d concierge -tAc "SELECT count(*) FROM tenants;" | grep -E "^2$"
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  eval-classifier:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run classifier eval (placeholder until Phase 5)
+        run: |
+          if [ -f backend/evals/classifier/run.py ]; then
+            cp .env.example .env
+            docker compose up -d --wait --timeout 180
+            python backend/evals/classifier/run.py \
+              --endpoint http://localhost:8001/classify \
+              --golden backend/evals/classifier/golden.jsonl \
+              --thresholds eval_thresholds.yaml
+            docker compose down -v
+          else
+            echo "classifier eval not yet wired (Phase 5 D-024); placeholder pass"
+          fi
+
+  eval-agent:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run agent tool-selection eval (placeholder until Phase 5)
+        env:
+          TENANT_A_TOKEN: ${{ secrets.TENANT_A_TOKEN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -f backend/evals/agent_tool_selection/run.py ]; then
+            cp .env.example .env
+            docker compose up -d --wait --timeout 180
+            python backend/evals/agent_tool_selection/run.py \
+              --endpoint http://localhost:8000/api/v1/chat/message \
+              --golden backend/evals/agent_tool_selection/golden.jsonl \
+              --tenant-token "$TENANT_A_TOKEN" \
+              --thresholds eval_thresholds.yaml
+            docker compose down -v
+          else
+            echo "agent eval not yet wired (Phase 5 D-025); placeholder pass"
+          fi
+
+  eval-rag:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run RAG eval (placeholder until Phase 5)
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -f backend/evals/rag/run.py ]; then
+            cp .env.example .env
+            docker compose up -d --wait --timeout 180
+            python backend/evals/rag/seed.py --endpoint http://localhost:8000
+            python backend/evals/rag/run.py \
+              --endpoint http://localhost:8000/api/v1/chat/message \
+              --golden backend/evals/rag/golden.jsonl \
+              --thresholds eval_thresholds.yaml
+            docker compose down -v
+          else
+            echo "RAG eval not yet wired (Phase 5 D-026); placeholder pass"
+          fi
+
+  eval-redteam:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run red-team eval (placeholder until Phase 5; block_rate=1.0 LOCKED)
+        env:
+          TENANT_A_TOKEN: ${{ secrets.TENANT_A_TOKEN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -f backend/evals/redteam/run.py ]; then
+            cp .env.example .env
+            docker compose up -d --wait --timeout 180
+            python backend/evals/redteam/run.py \
+              --endpoint http://localhost:8000/api/v1/chat/message \
+              --injection-probes backend/evals/redteam/injection.jsonl \
+              --cross-tenant-probes backend/evals/redteam/cross_tenant.jsonl \
+              --tenant-a-token "$TENANT_A_TOKEN" \
+              --thresholds eval_thresholds.yaml
+            docker compose down -v
+          else
+            echo "redteam eval not yet wired (Phase 5 D-027); placeholder pass"
+          fi
+
+  eval-redaction:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run redaction eval (placeholder until Phase 5; leak_rate=0.0 LOCKED)
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          if [ -f backend/evals/redaction/run.py ]; then
+            cp .env.example .env
+            docker compose up -d --wait --timeout 180
+            python backend/evals/redaction/run.py \
+              --endpoint http://localhost:8000/api/v1/chat/message \
+              --cases backend/evals/redaction/cases.jsonl \
+              --thresholds eval_thresholds.yaml
+            docker compose down -v
+          else
+            echo "redaction eval not yet wired (Phase 5 D-028); placeholder pass"
+          fi
