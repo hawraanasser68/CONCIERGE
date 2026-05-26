@@ -1,4 +1,13 @@
-# Owner B
+# Owner B — backend/app/routes/cms.py
+#
+# CMS page management at /api/v1/cms. Tenant-authored content that feeds the RAG
+# knowledge base. Full CRUD: create, list, get, update, delete.
+# Auth: platform user JWT via get_current_tenant_id (not widget tokens).
+#
+# On create/update with is_published=True, the CMS route triggers background
+# re-indexing via rag.index_page() so chunks stay in sync (B-020/B-021).
+# Slug uniqueness is enforced per-tenant (409 on duplicate).
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException

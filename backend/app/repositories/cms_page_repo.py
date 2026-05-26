@@ -1,4 +1,10 @@
-# Owner B
+# Owner B — backend/app/repositories/cms_page_repo.py
+#
+# CRUD repository for CMS pages. Enforces the (tenant_id, slug) uniqueness
+# constraint at the application layer — callers must catch IntegrityError and
+# return HTTP 409. update() and delete() scope reads to tenant_id before
+# mutating so cross-tenant modifications are architecturally impossible.
+
 import uuid
 
 from sqlalchemy import update

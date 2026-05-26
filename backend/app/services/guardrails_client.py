@@ -1,4 +1,15 @@
-# Owner B
+# Owner B — backend/app/services/guardrails_client.py
+#
+# HTTP client for the guardrails sidecar's /check/input and /check/output
+# endpoints (Owner C). Fails CLOSED on any error — raises GuardrailsUnavailableError
+# so the chat route returns HTTP 503. Never allows a message through when the
+# sidecar is unreachable (per INTERFACES.md §3).
+#
+# Usage (from chat.py):
+#   guardrails = get_guardrails_client(request)
+#   result = await guardrails.check_input(message, tenant_id, session_id)
+#   result = await guardrails.check_output(response, tenant_id, session_id)
+
 import uuid
 from dataclasses import dataclass, field
 

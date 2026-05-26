@@ -1,4 +1,14 @@
-# Owner B
+# Owner B — backend/app/services/session_memory.py
+#
+# Redis-backed conversation history. Key pattern: conversation:{tenant_id}:{session_id}.
+# Stores at most 20 messages (LPUSH + LTRIM 0 19); refreshes a 30-minute TTL on every
+# write. Only guardrails-redacted content is written here — raw PII is never stored.
+# History is loaded for ALL routing branches (RAG, lead, escalate, agent).
+#
+# Usage (from chat.py):
+#   history = await get_history(redis, tenant_id, session_id)
+#   await append_message(redis, tenant_id, session_id, role="user", content=redacted)
+
 import json
 import uuid
 from datetime import datetime, timezone

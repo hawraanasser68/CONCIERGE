@@ -1,4 +1,16 @@
-# Owner B
+# Owner B — backend/app/services/llm_client.py
+#
+# Anthropic SDK adapter for claude-sonnet-4-6. Handles system-message extraction
+# (peels a leading role="system" entry and passes it as the SDK's system= param),
+# optional tool schema injection, and content-block parsing. Returns a normalised
+# LLMResponse with stop_reason, joined text content, tool_use dict, usage counts,
+# and raw_content blocks — the last field lets agent.py re-append the assistant
+# turn verbatim in Anthropic's multi-turn format.
+#
+# Usage (from agent.py and router.py workflows):
+#   llm = get_llm_client(request)
+#   resp = await llm.complete(messages, tools=schemas, max_tokens=2048)
+
 import uuid
 from dataclasses import dataclass
 

@@ -1,4 +1,15 @@
-# Owner B
+# Owner B — backend/app/services/embeddings_client.py
+#
+# HTTP client for POST /embed and POST /embed/batch on the model server
+# (BGE-small ONNX, Owner C). Used by the RAG retrieval path (single embed
+# per query) and the indexing pipeline (batch of up to 100 texts per call).
+# Errors propagate to the caller — no fail-open/closed policy at this layer.
+#
+# Usage:
+#   client = get_embeddings_client(request)
+#   vector = await client.embed(text)           # single
+#   vectors = await client.embed_batch(texts)   # batch (indexing)
+
 from dataclasses import dataclass
 
 import structlog
