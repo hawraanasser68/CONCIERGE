@@ -1,0 +1,8 @@
+docs - do not commit/
+
+# Python
+.venv/
+backend/.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
