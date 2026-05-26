@@ -274,6 +274,9 @@ async def capture_lead(
 - `tenant_id` is sourced from the verified JWT via dependency injection — a cross-tenant write is architecturally impossible regardless of what the LLM produces
 - Rate limit: max 5 `capture_lead` calls per `session_id` per hour
 
+**DB column mapping (Owner B must apply this in lead_repo.py):**
+The `Lead` model column is `visitor_name`, not `name`. Always write `Lead(visitor_name=name, ...)` — NOT `Lead(name=name, ...)`.
+
 **Output (success):**
 ```json
 {
@@ -319,6 +322,9 @@ async def escalate(
   "ticket_id": "string — UUID of the escalation row"
 }
 ```
+
+**DB column mapping (Owner B must apply this in escalation_repo.py):**
+The `Escalation` model column is `session_id`, not `conversation_id`. Always write `Escalation(session_id=conversation_id, ...)` — NOT `Escalation(conversation_id=conversation_id, ...)`.
 
 ---
 
