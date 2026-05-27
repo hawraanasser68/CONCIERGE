@@ -32,9 +32,9 @@ class TenantCostsRepository:
         await session.execute(
             text("""
                 INSERT INTO tenant_costs
-                    (tenant_id, date, llm_tokens_in, llm_tokens_out, embed_tokens, classify_calls)
+                    (id, tenant_id, date, llm_tokens_in, llm_tokens_out, embed_tokens, classify_calls)
                 VALUES
-                    (:tid, :today, :tin, :tout, :embed, :classify)
+                    (gen_random_uuid(), :tid, :today, :tin, :tout, :embed, :classify)
                 ON CONFLICT (tenant_id, date) DO UPDATE SET
                     llm_tokens_in  = tenant_costs.llm_tokens_in  + EXCLUDED.llm_tokens_in,
                     llm_tokens_out = tenant_costs.llm_tokens_out + EXCLUDED.llm_tokens_out,
