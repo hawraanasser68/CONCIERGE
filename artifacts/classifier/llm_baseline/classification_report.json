@@ -1,0 +1,45 @@
+{
+  "accuracy": 0.5133333333333333,
+  "escalate": {
+    "f1-score": 0.6382978723404256,
+    "precision": 0.5172413793103449,
+    "recall": 0.8333333333333334,
+    "support": 36.0
+  },
+  "lead": {
+    "f1-score": 0.40625,
+    "precision": 0.4482758620689655,
+    "recall": 0.37142857142857144,
+    "support": 35.0
+  },
+  "macro avg": {
+    "f1-score": 0.5159352782624549,
+    "precision": 0.4976489028213166,
+    "recall": 0.5857142857142856,
+    "support": 150.0
+  },
+  "question": {
+    "f1-score": 0.6,
+    "precision": 0.5454545454545454,
+    "recall": 0.6666666666666666,
+    "support": 36.0
+  },
+  "spam": {
+    "f1-score": 0.8421052631578947,
+    "precision": 0.7272727272727273,
+    "recall": 1.0,
+    "support": 8.0
+  },
+  "unknown_or_agent": {
+    "f1-score": 0.09302325581395349,
+    "precision": 0.25,
+    "recall": 0.05714285714285714,
+    "support": 35.0
+  },
+  "weighted avg": {
+    "f1-score": 0.45860086308671233,
+    "precision": 0.45676593521421105,
+    "recall": 0.5133333333333333,
+    "support": 150.0
+  }
+}

@@ -171,7 +171,7 @@ The router contract exposed to the repo is `spam`, `faq`, `lead`, `escalate`, an
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Classical joblib | 0.9836 | 0.9831 | 0.9896 | 0.9658 | 0.9829 | 0.9966 | 0 |
 | DL ONNX baseline | 0.9904 | 1.0000 | 0.9932 | 0.9795 | 0.9793 | 1.0000 | 2 |
-| LLM zero-shot | pending | pending | pending | pending | pending | pending | pending |
+| LLM zero-shot (strict prompt) | 0.6257 | 0.8889 | 0.6829 | 0.4828 | 0.6966 | 0.3774 | N/A |
 
 ### Final product golden set
 
@@ -184,9 +184,42 @@ The router contract exposed to the repo is `spam`, `faq`, `lead`, `escalate`, an
 
 - Classical model ships.
 - DL ONNX remains a comparison baseline only.
+- LLM zero-shot is an offline comparison baseline only and is not part of production routing.
+- Among the tested LLM prompt variants, `strict` is the selected comparison baseline because it delivered the best macro-F1.
 - DL was rejected because it produced high-confidence wrong direct routes, which is the failure mode that matters most for a router.
 - The modelserver runtime threshold is `0.80`. The `0.75` value from Colab is retained only as the experimental threshold selected during offline evaluation.
 - The classifier is a router, not the security boundary. Guardrails, auth, tenant isolation, and redaction remain the actual control plane for abuse and data-protection failures.
+
+### LLM prompt-variant comparison
+
+Prompt-variant runs use the exported offline labels `spam`, `question`, `lead`, `escalate`, and `unknown_or_agent`. In the model card and router contract, `question` is normalized to `faq` and `unknown_or_agent` is normalized to `ambiguous`.
+
+| Prompt variant | Rows | Accuracy | Macro-F1 | Weighted-F1 | Parse errors | Latency ms/row | Cost USD | spam F1 | question/faq F1 | lead F1 | escalate F1 | unknown_or_agent/ambiguous F1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| simple | 150 | 0.5133 | 0.5159 | 0.4586 | 0 | 1327.11 | 0.072181 | 0.8421 | 0.6000 | 0.4062 | 0.6383 | 0.0930 |
+| strict | 150 | 0.6067 | 0.6257 | 0.5792 | 0 | 1391.67 | 0.089171 | 0.8889 | 0.6829 | 0.4828 | 0.6966 | 0.3774 |
+| fewshot | 150 | 0.6000 | 0.5979 | 0.5552 | 0 | 1355.44 | 0.115716 | 0.8421 | 0.6667 | 0.2727 | 0.7250 | 0.4828 |
+
+Strict is the best LLM baseline by macro-F1, so it is the recorded comparison point in `modelserver/model_card.yaml`. Fewshot improved `unknown_or_agent` recognition over both simple and strict, but that gain came with a sharp drop in `lead` F1, which is a poor trade for a concierge router because lead capture is a primary business workflow.
+
+### Anthropic zero-shot baseline
+
+Run locally only:
+
+```bash
+cp .env.example .env
+# fill ANTHROPIC_API_KEY
+python scripts/evals/run_llm_baseline_anthropic.py --max-examples 150
+```
+
+Outputs are written to `artifacts/classifier/llm_baseline/` by default. Prompt variants can be separated with `--prompt-version` and `--output-dir`:
+
+- `predictions.jsonl`
+- `metrics.json`
+- `classification_report.json`
+- `confusion_matrix.csv`
+
+This runner is eval-only. It uses Anthropic Claude Haiku via `ANTHROPIC_API_KEY`, does not modify the production router, and must not be wired into modelserver runtime behavior. Even after prompt optimization, the LLM baseline remains comparison only and is not selected for production routing.
 
 ## Owner C — Red-Team And Redaction Fixtures
 
