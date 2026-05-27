@@ -1,1 +1,9 @@
-# Owner C
+# Owner C — safe refusal templates for platform rails
+prompts:
+  - task: safe_refusal
+    content: |
+      I'm sorry, I can't help with that request. Please contact support if you need assistance.
+
+  - task: pii_notice
+    content: |
+      Your message contained personal information that has been redacted for your security.

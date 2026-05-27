@@ -1,0 +1,7 @@
+true_label,spam,question,lead,escalate,unknown_or_agent,parse_error
+spam,1,0,0,0,0,0
+question,0,1,0,0,0,0
+lead,0,0,0,0,1,0
+escalate,0,0,0,0,1,0
+unknown_or_agent,0,1,0,0,0,0
+parse_error,0,0,0,0,0,0

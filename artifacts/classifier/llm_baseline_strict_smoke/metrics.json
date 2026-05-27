@@ -1,0 +1,26 @@
+{
+  "accuracy": 0.4,
+  "baseline_type": "llm_zero_shot",
+  "estimated_cost_usd": 0.003052,
+  "input_file": "_incoming_ml_export/concierge_classifier_team_export/data/classifier/processed/test.csv",
+  "input_tokens": 1862,
+  "latency_ms_per_row": 1433.8972249999642,
+  "macro_f1": 0.3333333333333333,
+  "model": "claude-haiku-4-5",
+  "model_name": "claude_haiku_zero_shot_router",
+  "note": "Zero-shot LLM baseline for comparison only. Not selected for production routing.",
+  "output_tokens": 238,
+  "parse_error_count": 0,
+  "per_class_f1": {
+    "escalate": 0.0,
+    "lead": 0.0,
+    "question": 0.6666666666666666,
+    "spam": 1.0,
+    "unknown_or_agent": 0.0
+  },
+  "prompt_version": "strict",
+  "rows": 5,
+  "token_estimate_method": "anthropic_usage",
+  "total_latency_seconds": 7.169486124999821,
+  "weighted_f1": 0.3333333333333333
+}

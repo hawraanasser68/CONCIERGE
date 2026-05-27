@@ -1,1 +1,12 @@
-# Owner C
+# Owner C — tenant Colang rails template
+# Applied after platform rails. Can only restrict; cannot weaken platform rails.
+
+define flow check tenant topic policy
+  $result = execute evaluate_tenant_topic
+  if $result.blocked
+    bot say "I'm sorry, I can only help with topics related to this business. Please ask something relevant."
+
+define flow check tenant persona compliance
+  $compliant = execute check_persona_compliance
+  if not $compliant
+    bot say "I'm sorry, I can only help with topics related to this business. Please ask something relevant."
