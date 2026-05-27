@@ -188,44 +188,62 @@ jobs:
   eval-redteam:
     needs: smoke-test
     runs-on: ubuntu-latest
+    env:
+      CONCIERGE_BASE_URL: http://localhost:8000
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - name: Run red-team eval (placeholder until Phase 5; block_rate=1.0 LOCKED)
-        env:
-          TENANT_A_TOKEN: ${{ secrets.TENANT_A_TOKEN }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      - name: Start stack + seed widgets
         run: |
-          if [ -f backend/evals/redteam/run.py ]; then
-            cp .env.example .env
-            docker compose up -d --wait --timeout 180
-            python backend/evals/redteam/run.py \
-              --endpoint http://localhost:8000/api/v1/chat/message \
-              --injection-probes backend/evals/redteam/injection.jsonl \
-              --cross-tenant-probes backend/evals/redteam/cross_tenant.jsonl \
-              --tenant-a-token "$TENANT_A_TOKEN" \
-              --thresholds eval_thresholds.yaml
-            docker compose down -v
-          else
-            echo "redteam eval not yet wired (Phase 5 D-027); placeholder pass"
+          cp .env.example .env
+          docker compose up -d --wait --timeout 180
+          docker compose exec -T -w /app backend python -m scripts.seed_dev_data
+      - name: Generate widget token (Tenant A)
+        run: |
+          WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
+            "SELECT id FROM widgets WHERE tenant_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' LIMIT 1;" | tr -d '[:space:]')
+          if [ -z "$WIDGET_ID" ]; then
+            echo "ERROR: no widget seeded for Tenant A"; exit 1
           fi
+          TOKEN=$(curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/widget/token" \
+            -H "Content-Type: application/json" \
+            -d "{\"widget_id\":\"$WIDGET_ID\",\"origin\":\"http://localhost:3000\"}" \
+            | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+          echo "WIDGET_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Run red-team HTTP runner (block_rate=1.0 LOCKED)
+        run: python backend/evals/redteam/http_run.py --live
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
 
   eval-redaction:
     needs: smoke-test
     runs-on: ubuntu-latest
+    env:
+      CONCIERGE_BASE_URL: http://localhost:8000
+      REDIS_URL: redis://localhost:6379
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - name: Run redaction eval (placeholder until Phase 5; leak_rate=0.0 LOCKED)
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      - name: Start stack + seed widgets
         run: |
-          if [ -f backend/evals/redaction/run.py ]; then
-            cp .env.example .env
-            docker compose up -d --wait --timeout 180
-            python backend/evals/redaction/run.py \
-              --endpoint http://localhost:8000/api/v1/chat/message \
-              --cases backend/evals/redaction/cases.jsonl \
-              --thresholds eval_thresholds.yaml
-            docker compose down -v
-          else
-            echo "redaction eval not yet wired (Phase 5 D-028); placeholder pass"
+          cp .env.example .env
+          docker compose up -d --wait --timeout 180
+          docker compose exec -T -w /app backend python -m scripts.seed_dev_data
+      - name: Generate widget token (Tenant A)
+        run: |
+          WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
+            "SELECT id FROM widgets WHERE tenant_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' LIMIT 1;" | tr -d '[:space:]')
+          if [ -z "$WIDGET_ID" ]; then
+            echo "ERROR: no widget seeded for Tenant A"; exit 1
           fi
+          TOKEN=$(curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/widget/token" \
+            -H "Content-Type: application/json" \
+            -d "{\"widget_id\":\"$WIDGET_ID\",\"origin\":\"http://localhost:3000\"}" \
+            | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+          echo "WIDGET_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Run redaction HTTP runner (leak_rate=0.0 LOCKED)
+        run: python backend/evals/redaction/http_run.py --live
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
