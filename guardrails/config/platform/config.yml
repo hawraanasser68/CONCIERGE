@@ -1,1 +1,13 @@
-# Owner C
+# Owner C — platform rails configuration
+# These rails are mandatory; tenants cannot override them.
+models: []
+
+rails:
+  input:
+    flows:
+      - check prompt injection
+      - check jailbreak
+      - check cross tenant probe
+  output:
+    flows:
+      - check output jailbreak

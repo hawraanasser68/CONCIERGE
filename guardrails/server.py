@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
@@ -16,14 +14,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from redaction import PresidioRedactor
+from rails import evaluate_message
+
 
 LOGGER = logging.getLogger("guardrails")
-BASE_DIR = Path(__file__).resolve().parent
-BACKEND_DIR = BASE_DIR.parent / "backend"
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
 
-from app.services.redaction import redact
+_redactor: PresidioRedactor | None = None
 
 
 class GuardrailsRequest(BaseModel):
@@ -62,6 +59,8 @@ def _read_service_token() -> str:
 async def lifespan(app: FastAPI):
     configure_logging()
     app.state.service_token = _read_service_token()
+    global _redactor
+    _redactor = PresidioRedactor()
     LOGGER.info("startup_complete")
     try:
         yield
@@ -69,7 +68,7 @@ async def lifespan(app: FastAPI):
         LOGGER.info("shutdown_complete")
 
 
-app = FastAPI(title="Concierge Guardrails Stub", lifespan=lifespan)
+app = FastAPI(title="Concierge Guardrails", lifespan=lifespan)
 
 
 def _error_response(status_code: int, error: str, code: str) -> JSONResponse:
@@ -100,20 +99,31 @@ def _require_service_token(request: Request) -> None:
 
 
 def _build_response(payload: GuardrailsRequest) -> dict[str, object]:
-    redacted_message = redact(payload.message)
-    flagged_categories = ["pii"] if redacted_message != payload.message else []
+    redactor = _redactor or PresidioRedactor()
+    result = redactor.redact(payload.message)
+    redacted_message = result.redacted_text
+
+    decision = evaluate_message(payload.message, redacted_message)
+
+    flagged_categories = list(decision.flagged_categories)
+
     LOGGER.info(
-        "guardrails_check tenant_id=%s session_id=%s direction=%s allowed=true flagged_count=%d",
+        "guardrails_check tenant_id=%s session_id=%s direction=%s allowed=%s flagged_count=%d",
         payload.tenant_id,
         payload.session_id,
         payload.direction,
+        decision.allowed,
         len(flagged_categories),
     )
-    return {
-        "allowed": True,
+
+    response: dict[str, object] = {
+        "allowed": decision.allowed,
         "flagged_categories": flagged_categories,
         "redacted_message": redacted_message,
     }
+    if not decision.allowed and decision.block_reason:
+        response["block_reason"] = decision.block_reason
+    return response
 
 
 @app.get("/health")

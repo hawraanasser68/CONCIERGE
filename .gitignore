@@ -4,6 +4,9 @@ _incoming_ml_export/
 # Python
 .venv/
 backend/.venv/
+.env
+.env.*
+!.env.example
 **/__pycache__/
 *.pyc
 .pytest_cache/

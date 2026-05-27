@@ -101,16 +101,68 @@ classifier:
         direct_coverage_pct: 0.54
         wrong_direct_routes: 3
     llm_zeroshot:
-      status: "pending"
-      macro_f1: null
+      status: "measured"
+      model: "claude-haiku-4-5"
+      prompt_version: "strict"
+      rows_evaluated: 150
+      macro_f1: 0.6257124085792041
+      weighted_f1: 0.5791948502940811
+      accuracy: 0.6066666666666667
       per_class_f1:
-        spam: null
-        faq: null
-        lead: null
-        escalate: null
-        ambiguous: null
-      cost_per_1000: null
-      note: "No LLM zero-shot metrics artifact was present in _incoming_ml_export."
+        spam: 0.8888888888888888
+        faq: 0.6829268292682927
+        lead: 0.4827586206896552
+        escalate: 0.6966292134831461
+        ambiguous: 0.37735849056603776
+      latency_ms_per_row: 1391.6654447466135
+      estimated_cost_usd: 0.089171
+      cost_per_1000: 0.5945
+      parse_error_count: 0
+      artifact_path: "artifacts/classifier/llm_baseline/"
+      prompt_variants:
+        simple:
+          rows_evaluated: 150
+          accuracy: 0.5133333333333333
+          macro_f1: 0.5159352782624549
+          weighted_f1: 0.45860086308671233
+          parse_error_count: 0
+          latency_ms_per_row: 1327.112864113345
+          estimated_cost_usd: 0.072181
+          per_class_f1:
+            spam: 0.8421052631578947
+            faq: 0.6
+            lead: 0.40625
+            escalate: 0.6382978723404256
+            ambiguous: 0.09302325581395349
+        strict:
+          rows_evaluated: 150
+          accuracy: 0.6066666666666667
+          macro_f1: 0.6257124085792041
+          weighted_f1: 0.5791948502940811
+          parse_error_count: 0
+          latency_ms_per_row: 1391.6654447466135
+          estimated_cost_usd: 0.089171
+          per_class_f1:
+            spam: 0.8888888888888888
+            faq: 0.6829268292682927
+            lead: 0.4827586206896552
+            escalate: 0.6966292134831461
+            ambiguous: 0.37735849056603776
+        fewshot:
+          rows_evaluated: 150
+          accuracy: 0.6
+          macro_f1: 0.5978515646482978
+          weighted_f1: 0.5551923224990376
+          parse_error_count: 0
+          latency_ms_per_row: 1355.4414647200003
+          estimated_cost_usd: 0.115716
+          per_class_f1:
+            spam: 0.8421052631578947
+            faq: 0.6666666666666666
+            lead: 0.2727272727272727
+            escalate: 0.725
+            ambiguous: 0.4827586206896552
+      note: "Zero-shot baseline with claude-haiku-4-5. The strict prompt variant is the selected LLM comparison baseline because it produced the best macro-F1 across tested prompt variants. The LLM baseline remains comparison only and is never deployed; it is still materially weaker than the shipped classical router and far slower per row."
   deployed_model: "classical"
   deployed_reason: "Classical ships because it matched strong public test performance while preserving zero wrong direct routes on both the threshold-selection set and the final product golden set; the DL baseline produced high-confidence wrong direct routes."
   artifact_path: "artifacts/classical_model.joblib"

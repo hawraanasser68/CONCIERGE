@@ -1,1 +1,12 @@
-# Owner C
+# Owner C — tenant rails template configuration
+# Copied per tenant; customized via admin UI.
+# These rails apply AFTER platform rails and can only restrict further.
+models: []
+
+rails:
+  input:
+    flows:
+      - check tenant topic policy
+  output:
+    flows:
+      - check tenant persona compliance

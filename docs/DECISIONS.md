@@ -86,6 +86,41 @@ Tenant admins expect persona and tool configuration changes to take effect immed
 
 ---
 
+## Owner C — Guardrails image size deviation
+
+Decision: ship the guardrails sidecar image at ~618 MB, 18 MB over the documented 600 MB target.
+
+Why this deviates:
+
+- The spec targets `< 600 MB` for the guardrails container. Our build lands at ~618 MB on disk.
+- The bulk comes from Presidio's hard dependency on spaCy (~109 MB) plus `blis`, `numpy`, and `phonenumbers` country metadata (~80 MB combined). These are required transitively by `presidio-analyzer`, which the spec mandates for PII detection.
+- The image already excludes `torch`, `transformers`, and `sentence-transformers` (verified with `pip show`). The multi-stage build uses a bind-mount for build wheels so no compiler or wheel cache layer persists in the runtime image.
+- Aggressive pruning (stripping spaCy internals, removing `pip`/`setuptools`) could close the 18 MB gap but risks breaking PERSON detection and in-container test workflows. The risk was judged not worth the marginal size win.
+
+Operational consequence:
+
+- The 18 MB overage is documented here rather than silently shipped. If the cap becomes a hard CI gate, the next step is to drop Presidio entirely and rely on regex-only PII redaction (the test suite and red-team probes already pass via the regex path).
+- All other guardrails constraints are met: red-team block rate = 1.0 (12/12 probes), no forbidden deps, no runtime network fetches, sub-3-second test suite.
+
+---
+
+## Owner C — LLM zero-shot baseline result
+
+Decision: record the LLM zero-shot baseline (claude-haiku-4-5) in `modelserver/model_card.yaml` as a measured comparison point, using the `strict` prompt variant as the selected LLM baseline. Never deploy it.
+
+Why classical still ships after prompt optimization:
+
+- The best LLM prompt variant (`strict`) reached `macro_f1 = 0.6257`, still far below the shipped classical router at `macro_f1 = 0.9836`.
+- The classical router is deterministic and local. It requires no outbound API call, has near-zero marginal cost per request, and avoids dependence on external model availability.
+- The strict LLM baseline costs about `$0.089171` for 150 routes, roughly `$0.59` per 1000 routing calls, while the classical router serves at effectively `$0` marginal cost.
+- The strict LLM baseline averages `1391.67 ms` per row versus classical at about `0.18 ms` per row, so the LLM path is orders of magnitude slower.
+- Fewshot improved `unknown_or_agent` handling (`0.4828` F1) but damaged `lead` performance (`0.2727` F1), which is not acceptable for a concierge router that must protect lead capture quality.
+- The classical model preserved the safer direct-route behavior that matters most operationally: zero wrong direct routes on both the threshold-selection set and the final product golden set. The DL baseline missed that bar, and the LLM baseline remains too weak and too expensive to justify replacing a safer local router.
+
+The LLM baseline artifacts live under `artifacts/classifier/llm_baseline*` for reproducibility but are never loaded by the modelserver.
+
+---
+
 ## Owner C — Classifier artifact commit policy
 
 Decision: commit the small SHA-pinned classifier artifacts required by the modelserver for bootcamp reproducibility and fresh-clone demo readiness.
