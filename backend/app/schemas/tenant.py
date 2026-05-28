@@ -36,3 +36,17 @@ class TenantResponse(BaseModel):
     erased_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class TenantCostSummary(BaseModel):
+    """Aggregated token + classifier counts per tenant over a rolling window.
+    Returned by GET /api/v1/platform/costs. Manager-only — no tenant content."""
+    tenant_id: uuid.UUID
+    slug: str
+    name: str
+    llm_tokens_in: int
+    llm_tokens_out: int
+    embed_tokens: int
+    classify_calls: int
+
+    model_config = {"from_attributes": True}
