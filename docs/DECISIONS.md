@@ -121,6 +121,32 @@ The LLM baseline artifacts live under `artifacts/classifier/llm_baseline*` for r
 
 ---
 
+## Owner C — Embedding model swap (BGE → OpenAI)
+
+Decision: serve `/embed` from OpenAI `text-embedding-3-small` with `dimensions=768`, instead of exporting BGE-small-en-v1.5 to ONNX.
+
+Why we swapped:
+
+- The original plan was to export BGE-small to ONNX in a Colab notebook and serve it via `onnxruntime` in the modelserver. That requires committing a ~130 MB ONNX artifact plus a tokenizer, and ships a local model the team must maintain.
+- A hosted embedder removes that maintenance burden entirely: no artifact to keep SHA-pinned, no tokenizer to ship, no ONNX session to manage. The modelserver stays lean and the demo path stays reproducible from any machine.
+- OpenAI `text-embedding-3-small` supports `dimensions=N` (256, 512, 768, 1024, 1536). We request 768 so the response **exactly matches the existing frozen contract**: `chunks.embedding vector(768)` in Postgres, the `vector_dim: 768` field in `INTERFACES.md`, and the 768-zero shape that Owner B's `embeddings_client.py` already consumes. No schema migration, no cross-owner coordination required.
+- Cost is negligible at bootcamp scale: $0.02 per 1M tokens. Indexing 100 CMS pages × 500 tokens × 2 chunks/page costs ~$0.002.
+
+Why not Anthropic, why not Voyage:
+
+- Anthropic does not offer an embeddings API; their docs recommend Voyage.
+- Voyage `voyage-3-lite` is 512 dim and `voyage-3` is 1024 dim. Neither produces 768-dim vectors, so picking Voyage would force a Postgres column migration and Owner B + Owner A coordination — not worth the friction.
+
+Operational consequence:
+
+- `modelserver/app.py` reads the OpenAI key from Vault at `secret/embed/api_key`, with env-var fallback `OPENAI_API_KEY` for local dev.
+- The OpenAI SDK is added to `modelserver/pyproject.toml` and `modelserver/Dockerfile`.
+- `/embed` returns HTTP 503 (`EMBEDDER_UNAVAILABLE`) if no API key is configured at startup. Upstream OpenAI errors propagate as HTTP 502 (`EMBEDDER_UPSTREAM_ERROR`).
+- `model_card.yaml` `embedding.status` is updated from `pending` to `deployed` with provider, vector_dim, and the Vault secret path documented.
+- No artifact SHA is recorded for the embedder because nothing is shipped locally — the hosted model is the source of truth.
+
+---
+
 ## Owner C — Classifier artifact commit policy
 
 Decision: commit the small SHA-pinned classifier artifacts required by the modelserver for bootcamp reproducibility and fresh-clone demo readiness.

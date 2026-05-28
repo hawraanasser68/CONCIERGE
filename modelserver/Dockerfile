@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir \
     "numpy>=1.26,<3.0" \
     "onnxruntime>=1.18,<2.0" \
     "pyyaml>=6.0,<7.0" \
-    "hvac>=2.3,<3.0"
+    "hvac>=2.3,<3.0" \
+    "openai>=1.0,<2.0"
 
 COPY modelserver /app/modelserver
 
