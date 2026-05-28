@@ -124,75 +124,39 @@ jobs:
   eval-classifier:
     needs: smoke-test
     runs-on: ubuntu-latest
+    env:
+      MODELSERVER_URL: http://localhost:8001
     steps:
       - uses: actions/checkout@v4
-      - name: Run classifier eval (placeholder until Phase 5)
+      - name: Install runner Python deps
+        run: pip install httpx pyyaml
+      - name: Start stack
         run: |
-          if [ -f backend/evals/classifier/run.py ]; then
-            cp .env.example .env
-            docker compose up -d --wait --timeout 180
-            python backend/evals/classifier/run.py \
-              --endpoint http://localhost:8001/classify \
-              --golden backend/evals/classifier/golden.jsonl \
-              --thresholds eval_thresholds.yaml
-            docker compose down -v
-          else
-            echo "classifier eval not yet wired (Phase 5 D-024); placeholder pass"
-          fi
+          cp .env.example .env
+          docker compose up -d --wait --timeout 180
+      - name: Read modelserver token from Vault
+        run: |
+          TOKEN=$(docker compose exec -T -e VAULT_TOKEN=root vault \
+            vault kv get -field=token secret/svc/modelserver | tr -d '[:space:]')
+          if [ -z "$TOKEN" ]; then echo "ERROR: modelserver token empty"; exit 1; fi
+          echo "MODELSERVER_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Run classifier eval (live; macro_f1 gate)
+        run: python backend/evals/classifier/run.py --live
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
 
   eval-agent:
     needs: smoke-test
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run agent tool-selection eval (placeholder until Phase 5)
-        env:
-          TENANT_A_TOKEN: ${{ secrets.TENANT_A_TOKEN }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        run: |
-          if [ -f backend/evals/agent_tool_selection/run.py ]; then
-            cp .env.example .env
-            docker compose up -d --wait --timeout 180
-            python backend/evals/agent_tool_selection/run.py \
-              --endpoint http://localhost:8000/api/v1/chat/message \
-              --golden backend/evals/agent_tool_selection/golden.jsonl \
-              --tenant-token "$TENANT_A_TOKEN" \
-              --thresholds eval_thresholds.yaml
-            docker compose down -v
-          else
-            echo "agent eval not yet wired (Phase 5 D-025); placeholder pass"
-          fi
-
-  eval-rag:
-    needs: smoke-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run RAG eval (placeholder until Phase 5)
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        run: |
-          if [ -f backend/evals/rag/run.py ]; then
-            cp .env.example .env
-            docker compose up -d --wait --timeout 180
-            python backend/evals/rag/seed.py --endpoint http://localhost:8000
-            python backend/evals/rag/run.py \
-              --endpoint http://localhost:8000/api/v1/chat/message \
-              --golden backend/evals/rag/golden.jsonl \
-              --thresholds eval_thresholds.yaml
-            docker compose down -v
-          else
-            echo "RAG eval not yet wired (Phase 5 D-026); placeholder pass"
-          fi
-
-  eval-redteam:
-    needs: smoke-test
-    runs-on: ubuntu-latest
     env:
       CONCIERGE_BASE_URL: http://localhost:8000
+      DATABASE_URL: postgresql+asyncpg://concierge:changeme@localhost:5432/concierge
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install runner Python deps
+        run: pip install httpx pyyaml asyncpg
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
@@ -202,9 +166,79 @@ jobs:
         run: |
           WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
             "SELECT id FROM widgets WHERE tenant_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' LIMIT 1;" | tr -d '[:space:]')
-          if [ -z "$WIDGET_ID" ]; then
-            echo "ERROR: no widget seeded for Tenant A"; exit 1
-          fi
+          if [ -z "$WIDGET_ID" ]; then echo "ERROR: no widget seeded for Tenant A"; exit 1; fi
+          TOKEN=$(curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/widget/token" \
+            -H "Content-Type: application/json" \
+            -d "{\"widget_id\":\"$WIDGET_ID\",\"origin\":\"http://localhost:3000\"}" \
+            | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+          echo "WIDGET_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Run agent tool-selection eval (live; tool_accuracy gate)
+        run: python backend/evals/agent_tool_selection/run.py --live
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  eval-rag:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    env:
+      CONCIERGE_BASE_URL: http://localhost:8000
+      MODELSERVER_URL: http://localhost:8001
+      DATABASE_URL: postgresql+asyncpg://concierge:changeme@localhost:5432/concierge
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install runner Python deps
+        run: pip install httpx pyyaml asyncpg
+      - name: Start stack + seed widgets
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait --timeout 180
+          docker compose exec -T -w /app backend python -m scripts.seed_dev_data
+      - name: Generate widget token (Tenant A)
+        run: |
+          WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
+            "SELECT id FROM widgets WHERE tenant_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' LIMIT 1;" | tr -d '[:space:]')
+          if [ -z "$WIDGET_ID" ]; then echo "ERROR: no widget seeded for Tenant A"; exit 1; fi
+          TOKEN=$(curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/widget/token" \
+            -H "Content-Type: application/json" \
+            -d "{\"widget_id\":\"$WIDGET_ID\",\"origin\":\"http://localhost:3000\"}" \
+            | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+          echo "WIDGET_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Read modelserver token from Vault
+        run: |
+          TOKEN=$(docker compose exec -T -e VAULT_TOKEN=root vault \
+            vault kv get -field=token secret/svc/modelserver | tr -d '[:space:]')
+          if [ -z "$TOKEN" ]; then echo "ERROR: modelserver token empty"; exit 1; fi
+          echo "MODELSERVER_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Seed RAG content (CMS pages + chunks)
+        run: python backend/evals/rag/seed.py --endpoint "$CONCIERGE_BASE_URL"
+      - name: Run RAG eval (live; hit_at_5 + faithfulness + answer_relevancy)
+        run: python backend/evals/rag/run.py --all
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  eval-redteam:
+    needs: smoke-test
+    runs-on: ubuntu-latest
+    env:
+      CONCIERGE_BASE_URL: http://localhost:8000
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install runner Python deps
+        run: pip install httpx pyyaml
+      - name: Start stack + seed widgets
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait --timeout 180
+          docker compose exec -T -w /app backend python -m scripts.seed_dev_data
+      - name: Generate widget token (Tenant A)
+        run: |
+          WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
+            "SELECT id FROM widgets WHERE tenant_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' LIMIT 1;" | tr -d '[:space:]')
+          if [ -z "$WIDGET_ID" ]; then echo "ERROR: no widget seeded for Tenant A"; exit 1; fi
           TOKEN=$(curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/widget/token" \
             -H "Content-Type: application/json" \
             -d "{\"widget_id\":\"$WIDGET_ID\",\"origin\":\"http://localhost:3000\"}" \
@@ -225,6 +259,8 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install runner Python deps
+        run: pip install httpx pyyaml
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
@@ -234,9 +270,7 @@ jobs:
         run: |
           WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
             "SELECT id FROM widgets WHERE tenant_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' LIMIT 1;" | tr -d '[:space:]')
-          if [ -z "$WIDGET_ID" ]; then
-            echo "ERROR: no widget seeded for Tenant A"; exit 1
-          fi
+          if [ -z "$WIDGET_ID" ]; then echo "ERROR: no widget seeded for Tenant A"; exit 1; fi
           TOKEN=$(curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/widget/token" \
             -H "Content-Type: application/json" \
             -d "{\"widget_id\":\"$WIDGET_ID\",\"origin\":\"http://localhost:3000\"}" \
