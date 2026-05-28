@@ -145,7 +145,7 @@ async def _resolve_chunk_ids(db_url: str, tenant_id: str) -> dict[str, uuid.UUID
             SELECT c.id, p.slug, c.chunk_index
             FROM chunks c
             JOIN cms_pages p ON p.id = c.page_id
-            WHERE c.tenant_id = :tid::uuid
+            WHERE c.tenant_id = CAST(:tid AS uuid)
             """
         ), {"tid": tenant_id})
         for row in rows.all():
@@ -191,9 +191,9 @@ async def _ann_search(
             """
             SELECT id
             FROM chunks
-            WHERE tenant_id = :tid::uuid
+            WHERE tenant_id = CAST(:tid AS uuid)
               AND embedding IS NOT NULL
-            ORDER BY embedding <=> :vec::vector
+            ORDER BY embedding <=> CAST(:vec AS vector)
             LIMIT :k
             """
         ), {"tid": tenant_id, "vec": vec_str, "k": top_k})
@@ -332,17 +332,37 @@ def run_answer(triples: list[Triple]) -> tuple[list[AnswerResult], dict[str, flo
         )
         sys.exit(2)
 
+    # Same fix as agent_tool_selection/run.py: the widget JWT bakes a single
+    # session_id at mint time and the backend enforces X-Session-Id == jwt.session_id.
+    # Decode widget_id once from the supplied token, then mint a fresh token+session
+    # per triple so each example is session-isolated.
+    import base64
+    try:
+        _payload_b64 = widget_token.split(".")[1]
+        _payload_b64 += "=" * (-len(_payload_b64) % 4)
+        widget_id = json.loads(base64.urlsafe_b64decode(_payload_b64))["widget_id"]
+    except Exception as exc:
+        print(f"ERROR: could not decode widget_id from WIDGET_TOKEN: {exc}", file=sys.stderr)
+        sys.exit(2)
+
     results: list[AnswerResult] = []
     with httpx.Client(base_url=base_url, timeout=30) as client:
         for triple in triples:
-            session_id = str(uuid.uuid4())
             print(f"  [{triple.id}] asking...", end=" ", flush=True)
             try:
+                mint_resp = client.post(
+                    "/api/v1/widget/token",
+                    json={"widget_id": widget_id, "origin": "http://localhost:3000"},
+                )
+                mint_resp.raise_for_status()
+                _mint = mint_resp.json()
+                fresh_token = _mint["token"]
+                session_id = _mint["session_id"]
                 resp = client.post(
                     "/api/v1/chat/message",
                     json={"message": triple.question},
                     headers={
-                        "Authorization": f"Bearer {widget_token}",
+                        "Authorization": f"Bearer {fresh_token}",
                         "X-Session-Id": session_id,
                         "Origin": "http://localhost:3000",
                     },

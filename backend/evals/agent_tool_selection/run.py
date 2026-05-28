@@ -177,14 +177,14 @@ def _check_db_artifacts(session_id: str, tenant_id: str, db_url: str) -> dict[st
                 lead_n = (await sess.execute(
                     text(
                         "SELECT COUNT(*) FROM leads"
-                        " WHERE session_id = :sid AND tenant_id = :tid::uuid"
+                        " WHERE session_id = :sid AND tenant_id = CAST(:tid AS uuid)"
                     ),
                     {"sid": session_id, "tid": tenant_id},
                 )).scalar()
                 esc_n = (await sess.execute(
                     text(
                         "SELECT COUNT(*) FROM escalations"
-                        " WHERE session_id = :sid AND tenant_id = :tid::uuid"
+                        " WHERE session_id = :sid AND tenant_id = CAST(:tid AS uuid)"
                     ),
                     {"sid": session_id, "tid": tenant_id},
                 )).scalar()
@@ -198,6 +198,7 @@ def _check_db_artifacts(session_id: str, tenant_id: str, db_url: str) -> dict[st
 
 
 def run_live(examples: list[Example]) -> tuple[EvalResult, float]:
+    import base64
     import httpx
 
     base_url = os.environ.get("CONCIERGE_BASE_URL", "http://localhost:8000")
@@ -210,19 +211,51 @@ def run_live(examples: list[Example]) -> tuple[EvalResult, float]:
         print("ERROR: set WIDGET_TOKEN env var to a valid Tenant A widget JWT", file=sys.stderr)
         sys.exit(2)
 
+    # The widget JWT bakes a single session_id at mint time, and the backend
+    # enforces X-Session-Id == jwt.session_id. We therefore decode widget_id
+    # from the supplied JWT (no signature check needed; the backend will verify
+    # the mint response) and mint a FRESH token+session per example so:
+    #   - the X-Session-Id header always matches the JWT's claim, and
+    #   - DB artifact checks (capture_lead / escalate by session_id) are
+    #     isolated per example rather than bleeding across the 15-example run.
+    try:
+        _payload_b64 = widget_token.split(".")[1]
+        _payload_b64 += "=" * (-len(_payload_b64) % 4)
+        widget_id = json.loads(base64.urlsafe_b64decode(_payload_b64))["widget_id"]
+    except Exception as exc:
+        print(f"ERROR: could not decode widget_id from WIDGET_TOKEN: {exc}", file=sys.stderr)
+        sys.exit(2)
+
     result = EvalResult()
 
     with httpx.Client(base_url=base_url, timeout=30) as client:
         for ex in examples:
-            session_id = str(uuid.uuid4())
             print(f"  [{ex.id}] {ex.message[:55]!r:<57}", end=" ", flush=True)
+
+            try:
+                mint_resp = client.post(
+                    "/api/v1/widget/token",
+                    json={"widget_id": widget_id, "origin": "http://localhost:3000"},
+                )
+                mint_resp.raise_for_status()
+                _mint_data = mint_resp.json()
+                fresh_token = _mint_data["token"]
+                session_id = _mint_data["session_id"]
+            except Exception as exc:
+                result.results.append(ExampleResult(
+                    example_id=ex.id, passed=False,
+                    predicted_tools=[], expected_tools=ex.all_expected,
+                    reason=f"token mint failed: {exc}",
+                ))
+                print(f"ERROR (mint): {exc}")
+                continue
 
             try:
                 resp = client.post(
                     "/api/v1/chat/message",
                     json={"message": ex.message},
                     headers={
-                        "Authorization": f"Bearer {widget_token}",
+                        "Authorization": f"Bearer {fresh_token}",
                         "X-Session-Id": session_id,
                         "Origin": "http://localhost:3000",
                     },
