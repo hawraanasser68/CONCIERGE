@@ -42,9 +42,16 @@ async def lifespan(app):
         raise RuntimeError("Vault authentication failed — check VAULT_ADDR and VAULT_TOKEN")
 
     def _secret(path: str, key: str) -> str:
-        """Read a single key from a KV v2 secret path."""
+        """Read a single key from a KV v2 secret path.
+
+        Strips ALL whitespace (incl. internal newlines) so a malformed seed —
+        e.g. the `xxd -p` line-wrap in vault/init.sh that inserts a newline
+        mid-token — does not produce an illegal HTTP header value when the
+        secret is later sent as a Bearer credential to a sidecar service.
+        Matches the same `_clean_token` mitigation already in guardrails/server.py.
+        """
         data = vault.secrets.kv.v2.read_secret_version(path=path)
-        return data["data"]["data"][key]
+        return "".join(str(data["data"]["data"][key]).split())
 
     app.state.widget_signing_key = _secret("widget/signing_key", "key")
     app.state.modelserver_token = _secret("svc/modelserver", "token")
