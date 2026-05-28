@@ -121,6 +121,13 @@ def _resolve_artifact(path_value: str) -> Path:
     return BASE_DIR / path_value
 
 
+def _clean_token(raw: str) -> str:
+    # Remove ALL whitespace incl. internal newlines: a malformed seed (e.g. the
+    # `xxd -p` line-wrap that inserts a newline mid-token) would otherwise be an
+    # illegal HTTP header value and break all service-to-service auth.
+    return "".join(raw.split())
+
+
 def _read_service_token() -> str:
     vault_addr = os.getenv("VAULT_ADDR")
     vault_token = os.getenv("VAULT_TOKEN")
@@ -129,12 +136,12 @@ def _read_service_token() -> str:
         if not client.is_authenticated():
             raise RuntimeError("Vault authentication failed — check VAULT_ADDR and VAULT_TOKEN")
         secret = client.secrets.kv.v2.read_secret_version(path="svc/modelserver")
-        return secret["data"]["data"]["token"]
+        return _clean_token(secret["data"]["data"]["token"])
 
     fallback = os.getenv("MODELSERVER_TOKEN")
     if fallback:
         LOGGER.warning("vault_unavailable_using_env_token_fallback")
-        return fallback
+        return _clean_token(fallback)
 
     raise RuntimeError("Modelserver token unavailable — set VAULT_ADDR/VAULT_TOKEN or MODELSERVER_TOKEN")
 
