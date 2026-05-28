@@ -14,7 +14,7 @@
 import uuid
 from datetime import date, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,6 +84,7 @@ async def create_tenant(
 async def delete_tenant(
     tenant_id: uuid.UUID,
     background_tasks: BackgroundTasks,
+    request: Request,
     current_user=Depends(_manager),
     session: AsyncSession = Depends(get_session),
     redis=Depends(get_redis),
@@ -96,6 +97,7 @@ async def delete_tenant(
     await erase_tenant(
         session,
         redis,
+        request.app.state.minio,
         tenant_id=tenant_id,
         actor_id=current_user.id,
     )

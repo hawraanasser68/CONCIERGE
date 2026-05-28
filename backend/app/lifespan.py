@@ -9,8 +9,9 @@
 #   2. Vault (secrets needed before DB/Redis connect)
 #   3. DB engine + run migrations
 #   4. Redis pool
-#   5. httpx session (for calling modelserver + guardrails)
-#   6. Tracing (needs the app + engine)
+#   5. MinIO client (for tenant blob erasure)
+#   6. httpx session (for calling modelserver + guardrails)
+#   7. Tracing (needs the app + engine)
 
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,7 @@ import hvac
 import redis.asyncio as aioredis
 import structlog
 from httpx import AsyncClient
+from minio import Minio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import get_settings
@@ -79,7 +81,18 @@ async def lifespan(app):
     app.state.redis = redis
     log.info("redis_connected")
 
-    # ── 5. Shared httpx session ───────────────────────────────────────────────
+    # ── 5. MinIO client ───────────────────────────────────────────────────────
+    minio_access_key = _secret("minio/access_key", "key")
+    minio_secret_key = _secret("minio/secret_key", "key")
+    app.state.minio = Minio(
+        settings.minio_endpoint,
+        access_key=minio_access_key,
+        secret_key=minio_secret_key,
+        secure=False,
+    )
+    log.info("minio_client_created")
+
+    # ── 6. Shared httpx session ───────────────────────────────────────────────
     # Reused for all calls to modelserver and guardrails.
     # Timeout: 10s total — guardrails must respond fast enough for real-time chat.
     app.state.http_client = AsyncClient(timeout=10.0)
