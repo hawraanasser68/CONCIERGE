@@ -175,9 +175,9 @@ classifier:
         sha256: "8943dc03173ee493ef33da44df9e6be62777c6b6d86468f5f2cbb4044524b195"
       - path: "artifacts/dl_hashing_vectorizer.joblib"
         sha256: "a2559a72ec4ea445a19cc96e645500d9cc41e751c511b2f5f1c267e07ac33c9f"
-  runtime_serving_threshold: 0.80
+  runtime_serving_threshold: 0.40
   experimental_colab_threshold: 0.75
-  fallback_rule: "At runtime, return the predicted intent only when confidence is 0.80 or higher. If confidence is below 0.80, return ambiguous and route to the LLM agent."
+  fallback_rule: "At runtime, return the predicted intent only when confidence is 0.40 or higher. If confidence is below 0.40, return ambiguous and route to the LLM agent."
 
 embedding:
   model: "openai/text-embedding-3-small"
