@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     vault_addr: str = "http://vault:8200"
     vault_token: str = "root"
 
+    # ── MinIO ─────────────────────────────────────────────────────────────────
+    minio_endpoint: str = "minio:9000"
+
     # ── OpenTelemetry ─────────────────────────────────────────────────────────
     # OTLP gRPC endpoint — Jaeger listens on port 4317
     otel_exporter_otlp_endpoint: str = "http://jaeger:4317"

@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import redis.asyncio as aioredis
 import structlog
 from fastapi import HTTPException
+from minio import Minio
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,6 +73,7 @@ async def provision_tenant(
 async def erase_tenant(
     session: AsyncSession,
     redis: aioredis.Redis,
+    minio: Minio,
     *,
     tenant_id: uuid.UUID,
     actor_id: uuid.UUID,
@@ -134,5 +136,18 @@ async def erase_tenant(
                 await redis.delete(*keys)
     except Exception:
         log.warning("redis_flush_failed_after_erase", tenant_id=str(tenant_id))
+
+    # Purge MinIO blobs under tenants/{tenant_id}/ — non-critical if bucket absent
+    try:
+        bucket = "concierge"
+        prefix = f"tenants/{tenant_id}/"
+        objects = minio.list_objects(bucket, prefix=prefix, recursive=True)
+        object_names = [obj.object_name for obj in objects]
+        if object_names:
+            for name in object_names:
+                minio.remove_object(bucket, name)
+            log.info("minio_blobs_purged", tenant_id=str(tenant_id), count=len(object_names))
+    except Exception:
+        log.warning("minio_purge_failed_after_erase", tenant_id=str(tenant_id))
 
     log.info("tenant_erased", tenant_id=str(tenant_id))
