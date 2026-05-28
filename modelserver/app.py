@@ -28,6 +28,7 @@ MODEL_CARD_PATH = BASE_DIR / "model_card.yaml"
 THRESHOLD_CONFIG_PATH = BASE_DIR / "artifacts" / "threshold.json"
 LABEL_MAPPING_PATH = BASE_DIR / "artifacts" / "label_mapping.json"
 DEFAULT_EMBEDDING_DIM = 768
+OPENAI_EMBED_MODEL = "text-embedding-3-small"
 
 
 @dataclass
@@ -37,6 +38,21 @@ class LoadedClassifier:
     runtime_threshold: float
     deployed_model: str
     embedding_name: str
+
+
+@dataclass
+class EmbeddingProvider:
+    client: Any
+    model: str
+    dimensions: int
+
+    def embed_one(self, text: str) -> list[float]:
+        response = self.client.embeddings.create(
+            model=self.model,
+            input=text,
+            dimensions=self.dimensions,
+        )
+        return list(response.data[0].embedding)
 
 
 class ClassifyRequest(BaseModel):
@@ -123,6 +139,41 @@ def _read_service_token() -> str:
     raise RuntimeError("Modelserver token unavailable — set VAULT_ADDR/VAULT_TOKEN or MODELSERVER_TOKEN")
 
 
+def _read_openai_api_key() -> str | None:
+    vault_addr = os.getenv("VAULT_ADDR")
+    vault_token = os.getenv("VAULT_TOKEN")
+    if vault_addr and vault_token:
+        try:
+            client = hvac.Client(url=vault_addr, token=vault_token)
+            if client.is_authenticated():
+                secret = client.secrets.kv.v2.read_secret_version(path="embed/api_key")
+                key = secret["data"]["data"].get("key", "")
+                if key:
+                    return key
+        except Exception as exc:
+            LOGGER.warning("vault_embed_key_read_failed error=%s", exc)
+
+    return os.getenv("OPENAI_API_KEY") or None
+
+
+def _load_embedding_provider() -> EmbeddingProvider | None:
+    api_key = _read_openai_api_key()
+    if not api_key:
+        LOGGER.warning("openai_api_key_unavailable embedder=disabled")
+        return None
+    try:
+        from openai import OpenAI
+    except ImportError:
+        LOGGER.warning("openai_sdk_unavailable embedder=disabled")
+        return None
+    client = OpenAI(api_key=api_key)
+    return EmbeddingProvider(
+        client=client,
+        model=OPENAI_EMBED_MODEL,
+        dimensions=DEFAULT_EMBEDDING_DIM,
+    )
+
+
 def _load_classifier_bundle() -> LoadedClassifier:
     model_card = _load_yaml(MODEL_CARD_PATH)
     classifier_card = model_card["classifier"]
@@ -148,12 +199,14 @@ def _load_classifier_bundle() -> LoadedClassifier:
     internal_to_contract = label_mapping["internal_to_contract"]
 
     model = joblib.load(artifact_path)
+    embedding_card = model_card.get("embedding", {})
+    embedding_name = embedding_card.get("model", "openai_text_embedding_3_small")
     return LoadedClassifier(
         model=model,
         internal_to_contract=internal_to_contract,
         runtime_threshold=runtime_threshold,
         deployed_model=deployed_model,
-        embedding_name="bge_small",
+        embedding_name=embedding_name,
     )
 
 
@@ -163,10 +216,13 @@ async def lifespan(app: FastAPI):
     try:
         app.state.service_token = _read_service_token()
         app.state.classifier_bundle = _load_classifier_bundle()
+        app.state.embedding_provider = _load_embedding_provider()
+        embedder_status = "openai" if app.state.embedding_provider else "disabled"
         LOGGER.info(
-            "startup_complete classifier=%s runtime_threshold=%.2f",
+            "startup_complete classifier=%s runtime_threshold=%.2f embedder=%s",
             app.state.classifier_bundle.deployed_model,
             app.state.classifier_bundle.runtime_threshold,
+            embedder_status,
         )
         yield
     finally:
@@ -261,8 +317,42 @@ async def embed(
     _: None = Depends(_require_service_token),
 ) -> dict[str, list[float] | list[list[float]]]:
     _get_bundle(request)
-    zeros = [0.0] * DEFAULT_EMBEDDING_DIM
-    if payload.text is not None:
-        return {"embedding": zeros}
-    assert payload.texts is not None
-    return {"embeddings": [zeros[:] for _ in payload.texts]}
+    provider: EmbeddingProvider | None = getattr(request.app.state, "embedding_provider", None)
+    if provider is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "Embedding provider not configured", "code": "EMBEDDER_UNAVAILABLE"},
+        )
+
+    start = time.perf_counter()
+    try:
+        if payload.text is not None:
+            vector = provider.embed_one(payload.text)
+            latency_ms = (time.perf_counter() - start) * 1000
+            LOGGER.info(
+                "embed model=%s dim=%d latency_ms=%.3f",
+                provider.model,
+                len(vector),
+                latency_ms,
+            )
+            return {"embedding": vector}
+
+        assert payload.texts is not None
+        vectors = [provider.embed_one(text) for text in payload.texts]
+        latency_ms = (time.perf_counter() - start) * 1000
+        LOGGER.info(
+            "embed_batch model=%s count=%d dim=%d latency_ms=%.3f",
+            provider.model,
+            len(vectors),
+            len(vectors[0]) if vectors else 0,
+            latency_ms,
+        )
+        return {"embeddings": vectors}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        LOGGER.error("embed_failed error=%s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "Embedding provider request failed", "code": "EMBEDDER_UPSTREAM_ERROR"},
+        )

@@ -32,7 +32,17 @@ def _load_module():
     return importlib.reload(module)
 
 
-def _fake_request(module, token="test-token", bundle=None):
+class FakeEmbeddingProvider:
+    def __init__(self, vector=None, dim=768, model="openai/text-embedding-3-small"):
+        self._vector = vector if vector is not None else [0.123] * dim
+        self.model = model
+        self.dimensions = dim
+
+    def embed_one(self, _text):
+        return list(self._vector)
+
+
+def _fake_request(module, token="test-token", bundle=None, embedding_provider=None):
     if bundle is None:
         bundle = FakeBundle(
             model=FakeModel([0.9, 0.02, 0.02, 0.03, 0.03]),
@@ -45,14 +55,17 @@ def _fake_request(module, token="test-token", bundle=None):
             },
             runtime_threshold=0.8,
             deployed_model="classical",
-            embedding_name="bge_small",
+            embedding_name="openai/text-embedding-3-small",
         )
+    if embedding_provider is None:
+        embedding_provider = FakeEmbeddingProvider()
     return SimpleNamespace(
         headers={"Authorization": f"Bearer {token}"},
         app=SimpleNamespace(
             state=SimpleNamespace(
                 service_token=token,
                 classifier_bundle=bundle,
+                embedding_provider=embedding_provider,
             )
         ),
     )
@@ -64,7 +77,11 @@ def test_health_returns_ok_payload():
 
     response = asyncio.run(module.health(request))
 
-    assert response == {"status": "ok", "classifier": "classical", "embedding": "bge_small"}
+    assert response == {
+        "status": "ok",
+        "classifier": "classical",
+        "embedding": "openai/text-embedding-3-small",
+    }
 
 
 def test_classify_without_token_returns_401():
@@ -92,7 +109,7 @@ def test_classify_with_token_returns_contract_label():
         },
         runtime_threshold=0.8,
         deployed_model="classical",
-        embedding_name="bge_small",
+        embedding_name="openai/text-embedding-3-small",
     )
     request = _fake_request(module, bundle=bundle)
     payload = module.ClassifyRequest(
@@ -120,7 +137,7 @@ def test_low_confidence_returns_ambiguous():
         },
         runtime_threshold=0.8,
         deployed_model="classical",
-        embedding_name="bge_small",
+        embedding_name="openai/text-embedding-3-small",
     )
     request = _fake_request(module, bundle=bundle)
     payload = module.ClassifyRequest(
@@ -158,7 +175,7 @@ def test_embed_without_token_returns_401():
     assert exc_info.value.detail["code"] == "UNAUTHORIZED"
 
 
-def test_embed_stub_returns_768_zero_floats():
+def test_embed_returns_768_dim_via_provider():
     module = _load_module()
     request = _fake_request(module)
     payload = module.EmbedRequest(text="hello")
@@ -167,4 +184,29 @@ def test_embed_stub_returns_768_zero_floats():
 
     assert set(response.keys()) == {"embedding"}
     assert len(response["embedding"]) == 768
-    assert all(value == 0.0 for value in response["embedding"])
+    assert all(isinstance(value, float) for value in response["embedding"])
+
+
+def test_embed_batch_returns_one_vector_per_text():
+    module = _load_module()
+    request = _fake_request(module)
+    payload = module.EmbedRequest(texts=["one", "two", "three"])
+
+    response = asyncio.run(module.embed(payload, request, None))
+
+    assert set(response.keys()) == {"embeddings"}
+    assert len(response["embeddings"]) == 3
+    assert all(len(vec) == 768 for vec in response["embeddings"])
+
+
+def test_embed_returns_503_when_provider_unavailable():
+    module = _load_module()
+    request = _fake_request(module, embedding_provider=False)
+    request.app.state.embedding_provider = None
+    payload = module.EmbedRequest(text="hello")
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(module.embed(payload, request, None))
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail["code"] == "EMBEDDER_UNAVAILABLE"

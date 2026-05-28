@@ -180,9 +180,11 @@ classifier:
   fallback_rule: "At runtime, return the predicted intent only when confidence is 0.80 or higher. If confidence is below 0.80, return ambiguous and route to the LLM agent."
 
 embedding:
-  model: "BAAI/bge-small-en-v1.5"
-  artifact_path: "artifacts/bge_small.onnx"
-  artifact_sha256: "pending"
+  model: "openai/text-embedding-3-small"
+  provider: "openai"
   vector_dim: 768
-  status: "pending"
-  note: "BGE ONNX export was not present in _incoming_ml_export, so /embed currently returns a 768-zero stub for contract unblocking only. It is not suitable for production retrieval quality until a real hosted embedding path or BGE ONNX artifact is selected."
+  output_dimensions_requested: 768
+  status: "deployed"
+  api_key_secret_path: "secret/embed/api_key"
+  estimated_cost_per_1m_tokens_usd: 0.02
+  note: "Hosted OpenAI embeddings via text-embedding-3-small with dimensions=768. Replaces the originally planned BGE-small-en-v1.5 ONNX export — team agreed to use a hosted embedder to avoid shipping a local model artifact and to keep the modelserver lean. Dimension is held at 768 to preserve the chunks.embedding vector(768) Postgres column and the /embed contract in INTERFACES.md."
