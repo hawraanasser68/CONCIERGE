@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bloom Florista - Fresh flowers, lovingly arranged</title>
+  <style>
+    :root {
+      --rose: #c8607a;
+      --rose-dark: #8e4055;
+      --sage: #7a8c6e;
+      --cream: #faf6f1;
+      --ink: #2c2420;
+      --muted: #6b5d56;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+      background: var(--cream);
+      line-height: 1.55;
+    }
+    h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -0.01em; }
+
+    /* Header */
+    header {
+      background: #fff;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand {
+      font-family: Georgia, serif;
+      font-size: 26px;
+      color: var(--rose-dark);
+    }
+    nav a {
+      margin-left: 28px;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    nav a:hover { color: var(--rose-dark); }
+
+    /* Hero */
+    .hero {
+      padding: 96px 32px 80px;
+      max-width: 1100px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .hero h1 { font-size: 56px; color: var(--rose-dark); margin-bottom: 18px; }
+    .hero p { font-size: 19px; color: var(--muted); max-width: 580px; margin: 0 auto 32px; }
+    .cta {
+      display: inline-block;
+      padding: 14px 32px;
+      background: var(--rose);
+      color: #fff;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+    }
+    .cta:hover { background: var(--rose-dark); }
+
+    /* Products */
+    .section { max-width: 1100px; margin: 0 auto; padding: 64px 32px; }
+    .section-title { text-align: center; margin-bottom: 48px; }
+    .section-title h2 { font-size: 36px; color: var(--rose-dark); margin-bottom: 8px; }
+    .section-title p { color: var(--muted); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    .card-art {
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 72px;
+      background: linear-gradient(135deg, #f7e7ec 0%, #efe8da 100%);
+    }
+    .card-body { padding: 22px 24px 26px; }
+    .card-body h3 { font-size: 22px; margin-bottom: 8px; color: var(--ink); }
+    .card-body p { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+    .price { color: var(--rose-dark); font-weight: 600; font-size: 18px; }
+
+    /* About strip */
+    .about {
+      background: #fff;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .about-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 72px 32px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 56px;
+      align-items: center;
+    }
+    .about-inner h2 { font-size: 34px; color: var(--rose-dark); margin-bottom: 16px; }
+    .about-inner p { color: var(--muted); margin-bottom: 12px; }
+    .about-art {
+      height: 320px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--sage) 0%, #a8b89a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 96px;
+    }
+
+    /* Footer */
+    footer {
+      background: var(--ink);
+      color: #cfc3bd;
+      padding: 48px 32px 32px;
+      text-align: center;
+    }
+    footer .brand { color: #f4e1e7; font-size: 22px; display: block; margin-bottom: 12px; }
+    footer p { font-size: 13px; opacity: 0.7; }
+
+    @media (max-width: 720px) {
+      .hero h1 { font-size: 40px; }
+      .about-inner { grid-template-columns: 1fr; gap: 32px; }
+      nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">Bloom Florista</div>
+    <nav>
+      <a href="#shop">Shop</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Fresh flowers, lovingly arranged.</h1>
+    <p>Family-run florist serving the city since 2008. Locally sourced stems, same-day delivery, custom arrangements for every occasion.</p>
+    <a href="#shop" class="cta">Browse arrangements</a>
+  </section>
+
+  <section class="section" id="shop">
+    <div class="section-title">
+      <h2>Today's Bouquets</h2>
+      <p>Hand-arranged this morning. Order before 2pm for same-day delivery.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-art">&#127801;</div>
+        <div class="card-body">
+          <h3>Garden Romance</h3>
+          <p>Soft pink peonies, white roses, and sprigs of eucalyptus.</p>
+          <div class="price">$78</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-art">&#127803;</div>
+        <div class="card-body">
+          <h3>Sunrise Bundle</h3>
+          <p>Yellow ranunculus and orange tulips - bright and cheerful.</p>
+          <div class="price">$54</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-art">&#127807;</div>
+        <div class="card-body">
+          <h3>Quiet Sympathy</h3>
+          <p>White lilies, ivory roses, soft greenery in a hand-tied bouquet.</p>
+          <div class="price">$92</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-art">&#129344;</div>
+        <div class="card-body">
+          <h3>Wildflower Picnic</h3>
+          <p>Seasonal mix - daisies, lavender, snapdragons, billy buttons.</p>
+          <div class="price">$48</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="about" id="about">
+    <div class="about-inner">
+      <div>
+        <h2>Florists, not just flower sellers.</h2>
+        <p>Every arrangement is built by hand the day it's delivered. We source from three local growers, so what's on the table changes with the season.</p>
+        <p>Weddings, sympathy work, monthly office subscriptions, or a quick "just because" bouquet - we'll help you pick the right stems and the right note for the card.</p>
+      </div>
+      <div class="about-art">&#127876;</div>
+    </div>
+  </section>
+
+  <section class="section" id="contact">
+    <div class="section-title">
+      <h2>Visit or call</h2>
+      <p>Shop open Tue-Sat 9am-6pm | Sun 10am-3pm | Closed Mon</p>
+    </div>
+    <div style="text-align:center; color: var(--muted);">
+      <p style="margin-bottom:8px;">412 Maple Street, Suite B</p>
+      <p style="margin-bottom:8px;">(555) 014-2234</p>
+      <p>hello@bloomflorista.test</p>
+    </div>
+  </section>
+
+  <footer>
+    <span class="brand">Bloom Florista</span>
+    <p>&copy; 2026 Bloom Florista &middot; Locally owned &middot; Same-day delivery within 8 miles</p>
+  </footer>
+
+  <script>
+    // Embed the Concierge chat widget. The default widget_id below is the
+    // seeded Bloom widget; override via ?widget_id=<UUID> if you have re-seeded
+    // the DB and the UUID changed.
+    (function () {
+      var DEFAULT_WIDGET_ID = "cbd6db27-72c2-46f4-b428-519a81ec5b52";
+      var params = new URLSearchParams(window.location.search);
+      var widgetId = params.get("widget_id") || DEFAULT_WIDGET_ID;
+      var s = document.createElement("script");
+      s.src = "/widget.js";
+      s.setAttribute("data-widget-id", widgetId);
+      document.body.appendChild(s);
+    })();
+  </script>
+</body>
+</html>
