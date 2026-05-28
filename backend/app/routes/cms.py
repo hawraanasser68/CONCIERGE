@@ -271,6 +271,9 @@ async def toggle_publish(
     )
     await session.commit()
 
+    if page is None:
+        raise HTTPException(status_code=404, detail="Page not found")
+
     if page.is_published:
         _schedule_index(background_tasks, request, page.id, tid, page.title, page.content)
     else:
