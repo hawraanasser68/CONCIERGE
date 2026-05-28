@@ -41,7 +41,7 @@ jobs:
         run: ruff check backend/ admin/ modelserver/ guardrails/ --exclude backend/migrations
 
       - name: Mypy (backend)
-        run: mypy backend/app/
+        run: mypy --config-file backend/pyproject.toml backend/app/
 
       - name: Pytest (backend integration tests; DB/Vault stubbed via dependency_overrides)
         working-directory: backend
