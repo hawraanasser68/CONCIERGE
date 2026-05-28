@@ -26,16 +26,16 @@ Format: `[ID] [P?] Description — file`
 - [ ] C-010 [P] Export classical model to joblib — `joblib.dump(pipeline, "artifacts/classical_model.joblib")`; compute SHA-256 — `modelserver/artifacts/`
 - [ ] C-011 [P] Train DL model in `train_classifier_dl_onnx.ipynb` — DistilBERT fine-tuned or MLP over frozen embeddings; export to ONNX — `modelserver/notebooks/train_classifier_dl_onnx.ipynb`
 - [ ] C-012 [P] Measure LLM zero-shot baseline (Claude API call, 5-class classification) on same test set; record macro-F1 + per-class F1 + cost — `modelserver/notebooks/`
-- [ ] C-013 [P] Export BGE-small-en-v1.5 to ONNX in `export_bge_onnx.ipynb`; verify output dimension = 768; compute SHA-256 — `modelserver/notebooks/export_bge_onnx.ipynb`
+- [x] C-013 [P] ~~Export BGE-small-en-v1.5 to ONNX~~ — superseded by OpenAI hosted embedder decision; no local artifact needed (see docs/DECISIONS.md)
 
 ---
 
 ## Phase 2 — Real modelserver (Day 2, after Phase 1)
 
 - [ ] C-014 Update `modelserver/pyproject.toml` — add onnxruntime, scikit-learn, numpy — `modelserver/pyproject.toml`
-- [ ] C-015 Update `modelserver/app.py` — startup sequence: fetch Vault token → load model_card.yaml → load + verify SHA-256 of classifier artifact → load + verify SHA-256 of BGE ONNX artifact → start server; exit(1) on hash mismatch — `modelserver/app.py`
+- [x] C-015 Update `modelserver/app.py` — startup sequence: fetch Vault token → load model_card.yaml → load + verify SHA-256 of classifier artifact → read OpenAI API key from Vault (`secret/embed/api_key`) → start server; exit(1) on classifier hash mismatch; warn (not exit) if embed key is empty — `modelserver/app.py`
 - [ ] C-016 Implement real `POST /classify` — joblib or onnxruntime inference; log tenant_id, intent, confidence, latency (never message text) — `modelserver/app.py`
-- [ ] C-017 Implement real `POST /embed` — BGE ONNX inference; support single text + batch (`texts: list`); return 768-dim vector — `modelserver/app.py`
+- [x] C-017 Implement real `POST /embed` — OpenAI `text-embedding-3-small` with `dimensions=768`; support single text + batch (`texts: list`); return 768-dim vector; 503 if key not configured — `modelserver/app.py`
 - [ ] C-018 Fill `modelserver/model_card.yaml` with real training results — macro-F1, per-class F1, latencies for all three approaches; deployed_model, artifact_path, artifact_sha256 — `modelserver/model_card.yaml`
 - [ ] C-019 Build modelserver Docker image; verify size < 500MB — `modelserver/Dockerfile`
 

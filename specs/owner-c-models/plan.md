@@ -17,7 +17,7 @@ Owner C owns two separate services (modelserver and guardrails sidecar) plus cro
 | Framework | FastAPI + uvicorn | Consistent with backend |
 | Classical model | scikit-learn (TF-IDF + LR) | Fast, ~$0 serving cost, interpretable |
 | DL model | onnxruntime | No torch in container — ONNX export done offline |
-| Embeddings | onnxruntime (BGE-small ONNX) | No torch, no sentence-transformers in container |
+| Embeddings | OpenAI `text-embedding-3-small` (hosted, `dimensions=768`) | No local model artifact to ship; same 768-dim contract as original BGE plan; see docs/DECISIONS.md |
 | Vault client | hvac | Service token at startup |
 | Dependency management | uv | Per-service pyproject.toml |
 | **Image size target** | **< 500MB** | Hard constraint from brief |
@@ -36,7 +36,7 @@ Owner C owns two separate services (modelserver and guardrails sidecar) plus cro
 | Classical training | scikit-learn in Jupyter notebook |
 | DL training | PyTorch / Keras in Jupyter notebook |
 | DL → ONNX export | `torch.onnx.export` |
-| BGE → ONNX export | `torch.onnx.export` on the underlying transformer |
+| BGE → ONNX export | ~~`torch.onnx.export`~~ — superseded; using hosted OpenAI embedder instead (see docs/DECISIONS.md) |
 | Classical → joblib | `joblib.dump` |
 
 ---
