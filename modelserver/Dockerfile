@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir \
     "hvac>=2.3,<3.0" \
     "openai>=1.0,<2.0"
 
-COPY modelserver /app/modelserver
+COPY . /app/modelserver
 
 EXPOSE 8001
 
