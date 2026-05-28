@@ -24,7 +24,6 @@ import argparse
 import json
 import os
 import sys
-import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -199,6 +198,7 @@ def _check_db_artifacts(session_id: str, tenant_id: str, db_url: str) -> dict[st
 
 def run_live(examples: list[Example]) -> tuple[EvalResult, float]:
     import base64
+
     import httpx
 
     base_url = os.environ.get("CONCIERGE_BASE_URL", "http://localhost:8000")
