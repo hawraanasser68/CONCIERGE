@@ -76,5 +76,8 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I"]          # pycodestyle errors, pyflakes, isort
 
+[tool.mypy]
+ignore_missing_imports = true      # third-party stubs not required; real type errors still caught
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"              # all async test functions run without @pytest.mark.asyncio
