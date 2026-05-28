@@ -126,6 +126,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install eval deps
+        run: pip install httpx pyyaml
       - name: Run classifier eval (placeholder until Phase 5)
         run: |
           if [ -f backend/evals/classifier/run.py ]; then
@@ -145,6 +147,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install eval deps
+        run: pip install httpx pyyaml
       - name: Run agent tool-selection eval (placeholder until Phase 5)
         env:
           TENANT_A_TOKEN: ${{ secrets.TENANT_A_TOKEN }}
@@ -168,6 +172,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install eval deps
+        run: pip install httpx pyyaml anthropic
       - name: Run RAG eval (placeholder until Phase 5)
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -193,6 +199,8 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install eval deps
+        run: pip install httpx pyyaml
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
@@ -225,6 +233,8 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install eval deps
+        run: pip install httpx pyyaml
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
