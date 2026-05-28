@@ -18,7 +18,7 @@ import os
 import uuid
 
 import redis.asyncio as aioredis
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.tenancy.manager import erase_tenant
 

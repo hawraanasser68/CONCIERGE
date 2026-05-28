@@ -5,8 +5,8 @@
 # Uses ON CONFLICT (tenant_id, date) DO UPDATE so every call is idempotent.
 
 import uuid
-from datetime import date, timezone
 from datetime import datetime as dt
+from datetime import timezone
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +32,8 @@ class TenantCostsRepository:
         await session.execute(
             text("""
                 INSERT INTO tenant_costs
-                    (id, tenant_id, date, llm_tokens_in, llm_tokens_out, embed_tokens, classify_calls)
+                    (id, tenant_id, date,
+                     llm_tokens_in, llm_tokens_out, embed_tokens, classify_calls)
                 VALUES
                     (gen_random_uuid(), :tid, :today, :tin, :tout, :embed, :classify)
                 ON CONFLICT (tenant_id, date) DO UPDATE SET

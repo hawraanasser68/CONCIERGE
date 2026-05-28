@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_INJECTION_PATH = BASE_DIR / "injection.jsonl"
 DEFAULT_CROSS_TENANT_PATH = BASE_DIR / "cross_tenant.jsonl"
@@ -39,7 +38,9 @@ def _load_jsonl(path: Path) -> list[tuple[int, dict[str, Any]]]:
     return rows
 
 
-def _require_non_empty_string(row: dict[str, Any], field: str, case_id: str, failures: list[str]) -> None:
+def _require_non_empty_string(
+    row: dict[str, Any], field: str, case_id: str, failures: list[str]
+) -> None:
     value = row.get(field)
     if not isinstance(value, str) or not value.strip():
         failures.append(f"{case_id} field {field!r} must be a non-empty string")
@@ -100,7 +101,8 @@ def main() -> int:
         print(f"red-team fixture validation passed: {result.total} cases")
         return 0
 
-    print(f"red-team fixture validation failed: {len(result.failures)} failures across {result.total} cases")
+    n_fail = len(result.failures)
+    print(f"red-team fixture validation failed: {n_fail} failures across {result.total} cases")
     for failure in result.failures:
         print(f"- {failure}")
     return 1

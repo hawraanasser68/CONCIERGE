@@ -9,10 +9,11 @@
 import importlib
 import pkgutil
 
-import app.routes as routes_pkg
-from app.lifespan import lifespan
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+import app.routes as routes_pkg
+from app.lifespan import lifespan
 
 app = FastAPI(
     title="Concierge API",

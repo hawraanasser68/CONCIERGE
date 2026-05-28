@@ -11,9 +11,9 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.cost_meter import record_embed_usage
 from app.services.embeddings_client import EmbeddingsClient
 from app.services.rag import retrieve
-from app.services.cost_meter import record_embed_usage
 
 
 async def rag_search(

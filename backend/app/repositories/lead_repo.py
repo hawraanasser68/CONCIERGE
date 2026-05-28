@@ -7,7 +7,6 @@
 import uuid
 from typing import Optional
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.lead import Lead

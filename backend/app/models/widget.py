@@ -6,9 +6,8 @@
 # a request from an origin not in this list gets a 403 and the loader silently does nothing.
 
 import uuid
-from datetime import datetime
 
-from sqlalchemy import ARRAY, Boolean, DateTime, String, Text, func
+from sqlalchemy import ARRAY, Boolean, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 

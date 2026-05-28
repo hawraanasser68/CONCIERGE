@@ -52,7 +52,7 @@ async def capture_lead(
     if not _is_valid_contact(contact):
         return {
             "captured": False,
-            "reason": "Contact must be a valid email address or E.164 phone number (e.g. +14155550123)",
+            "reason": "Contact must be a valid email or E.164 phone number (e.g. +14155550123)",
         }
 
     if not await check_rate_limit(redis, tenant_id, "capture_lead", session_id=session_id):

@@ -6,9 +6,10 @@
 from enum import Enum
 
 from fastapi import Depends, HTTPException
-from app.models.user import User
+
 # Safe top-level import: auth/users.py does not import from roles.py
 from app.auth.users import fastapi_users
+from app.models.user import User
 
 
 class Role(str, Enum):

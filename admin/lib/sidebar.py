@@ -34,7 +34,7 @@ def render_user_panel() -> None:
         # Spacer pushes the panel toward the bottom of the sidebar.
         st.markdown("<div style='flex:1'></div>", unsafe_allow_html=True)
         st.divider()
-        st.caption(f"🔐 Signed in as")
+        st.caption("🔐 Signed in as")
         st.markdown(f"**{email}**")
         if st.button("Sign out", key="sidebar_signout", use_container_width=True):
             _confirm_signout()

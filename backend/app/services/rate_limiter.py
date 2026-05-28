@@ -30,7 +30,9 @@ _LIMITS: dict[str, tuple[int, int, str]] = {
 }
 
 
-def _key(tenant_id: uuid.UUID, action: str, session_id: str | None, window_seconds: int, scope: str) -> str:
+def _key(
+    tenant_id: uuid.UUID, action: str, session_id: str | None, window_seconds: int, scope: str
+) -> str:
     epoch = int(time.time()) // window_seconds
     if scope == "session":
         return f"ratelimit:{tenant_id}:{action}:{session_id}:{epoch}"

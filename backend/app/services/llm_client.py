@@ -35,7 +35,7 @@ class LLMResponse:
     content: str              # joined text blocks (empty when stop_reason is "tool_use")
     tool_use: dict | None     # {"id": "...", "name": "...", "input": {...}} or None
     usage: Usage
-    raw_content: list[dict]   # serialised content blocks — append directly to messages in agent loop
+    raw_content: list[dict]   # serialised content blocks — append to messages list in agent loop
 
 
 class LLMClient:

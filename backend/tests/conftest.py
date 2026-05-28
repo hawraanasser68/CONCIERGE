@@ -11,11 +11,11 @@
 #   4. FakeModelserverTransport and FakeLLMTransport intercept all httpx calls —
 #      no real network traffic in any test that uses the `client` fixture.
 
+import os
 import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
-import os
 
 import pytest
 from httpx import ASGITransport, AsyncClient, Request, Response

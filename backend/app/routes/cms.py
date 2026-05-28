@@ -165,7 +165,10 @@ async def create_page(
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        raise HTTPException(status_code=409, detail="A page with this slug already exists for this tenant")
+        raise HTTPException(
+            status_code=409,
+            detail="A page with this slug already exists for this tenant",
+        )
 
     if page.is_published:
         _schedule_index(background_tasks, request, page.id, tid, page.title, page.content)
@@ -217,7 +220,10 @@ async def update_page(
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        raise HTTPException(status_code=409, detail="A page with this slug already exists for this tenant")
+        raise HTTPException(
+            status_code=409,
+            detail="A page with this slug already exists for this tenant",
+        )
     if page is None:
         raise HTTPException(status_code=404, detail="Page not found")
 
