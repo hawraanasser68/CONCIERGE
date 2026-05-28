@@ -12,7 +12,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Any, Iterator
 
-
 try:
     from opentelemetry import trace
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -134,7 +133,9 @@ def record_api_request(
     )
 
 
-def record_classifier_call(*, tenant_id: Any, intent: str, confidence: float, latency_ms: float) -> None:
+def record_classifier_call(
+    *, tenant_id: Any, intent: str, confidence: float, latency_ms: float
+) -> None:
     _record_span(
         "classifier.call",
         tenant_id=tenant_id,

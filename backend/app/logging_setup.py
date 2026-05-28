@@ -9,7 +9,8 @@
 #   log.info("tenant_created", tenant_id=str(tenant_id), slug=slug)
 #
 # Each call produces one JSON line:
-#   {"timestamp": "...", "level": "info", "event": "tenant_created", "tenant_id": "...", "slug": "..."}
+#   {"timestamp": "...", "level": "info", "event": "tenant_created",
+#    "tenant_id": "...", "slug": "..."}
 
 import logging
 import sys

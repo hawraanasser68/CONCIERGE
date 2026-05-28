@@ -31,9 +31,8 @@ import json
 import os
 import sys
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent
 GOLDEN_PATH = BASE_DIR / "golden.jsonl"
@@ -286,11 +285,15 @@ Score the response on two dimensions. Reply with ONLY valid JSON, no explanation
 }}
 
 Scoring guide:
-- faithfulness: does the response contain only accurate information consistent with the ideal answer? 1.0 = fully accurate, 0.0 = fabricated or contradictory.
-- answer_relevancy: does the response directly address the question? 1.0 = direct and complete, 0.0 = off-topic or refuses without reason."""
+- faithfulness: does the response contain only accurate information consistent
+  with the ideal answer? 1.0 = fully accurate, 0.0 = fabricated or contradictory.
+- answer_relevancy: does the response directly address the question?
+  1.0 = direct and complete, 0.0 = off-topic or refuses without reason."""
 
 
-def _judge_response(question: str, ideal_answer: str, response: str, api_key: str) -> dict[str, float]:
+def _judge_response(
+    question: str, ideal_answer: str, response: str, api_key: str
+) -> dict[str, float]:
     import anthropic
     client = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
@@ -323,7 +326,10 @@ def run_answer(triples: list[Triple]) -> tuple[list[AnswerResult], dict[str, flo
         print("ERROR: WIDGET_TOKEN required for --answer mode", file=sys.stderr)
         sys.exit(2)
     if not api_key:
-        print("ERROR: LLM_API_KEY (or ANTHROPIC_API_KEY) required for --answer mode", file=sys.stderr)
+        print(
+            "ERROR: LLM_API_KEY (or ANTHROPIC_API_KEY) required for --answer mode",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     results: list[AnswerResult] = []
@@ -389,7 +395,10 @@ def main() -> int:
         metrics = _compute_retrieval_metrics(ret_results)
         print(f"  hit@5={metrics['hit_at_5']:.0%}  MRR={metrics['mrr']:.3f}")
         if metrics["hit_at_5"] < thresholds["hit_at_5"]:
-            print(f"  FAIL — hit@5 {metrics['hit_at_5']:.0%} < threshold {thresholds['hit_at_5']:.0%}")
+            print(
+                f"  FAIL — hit@5 {metrics['hit_at_5']:.0%}"
+                f" < threshold {thresholds['hit_at_5']:.0%}"
+            )
             failed = True
         else:
             print("  PASS")
@@ -397,11 +406,15 @@ def main() -> int:
     if args.answer or args.all:
         print(f"\nanswer quality eval  n={len(triples)}")
         ans_results, _ = run_answer(triples)
-        avg_faith = sum(r.faithfulness for r in ans_results) / len(ans_results) if ans_results else 0.0
-        avg_relev = sum(r.answer_relevancy for r in ans_results) / len(ans_results) if ans_results else 0.0
+        n = len(ans_results)
+        avg_faith = sum(r.faithfulness for r in ans_results) / n if n > 0 else 0.0
+        avg_relev = sum(r.answer_relevancy for r in ans_results) / n if n > 0 else 0.0
         print(f"  avg faithfulness={avg_faith:.2f}  avg answer_relevancy={avg_relev:.2f}")
         if avg_faith < thresholds["faithfulness"]:
-            print(f"  FAIL — faithfulness {avg_faith:.2f} < threshold {thresholds['faithfulness']:.2f}")
+            print(
+                f"  FAIL — faithfulness {avg_faith:.2f}"
+                f" < threshold {thresholds['faithfulness']:.2f}"
+            )
             failed = True
         else:
             print("  PASS (faithfulness)")

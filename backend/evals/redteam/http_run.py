@@ -135,8 +135,13 @@ def _is_blocked(http_status: int, response_text: str) -> bool:
 # ── Runners ───────────────────────────────────────────────────────────────────
 
 def dry_run(probes: list[InjectionProbe]) -> int:
-    ct_count = sum(1 for _ in CROSS_TENANT_PATH.open()
-                   if _.strip() and not _.strip().startswith("#")) if CROSS_TENANT_PATH.exists() else 0
+    if CROSS_TENANT_PATH.exists():
+        ct_count = sum(
+            1 for _ in CROSS_TENANT_PATH.open()
+            if _.strip() and not _.strip().startswith("#")
+        )
+    else:
+        ct_count = 0
     print(f"injection probes: {len(probes)}")
     print(f"cross-tenant cases: {ct_count} (manual — not sent via HTTP)")
     for p in probes:
@@ -224,7 +229,10 @@ def main() -> int:
     if failures:
         print("FAILURES:")
         for r in failures:
-            print(f"  [{r.probe_id}] blocked={r.blocked}  http={r.http_status}  {r.message_prefix!r}")
+            print(
+                f"  [{r.probe_id}] blocked={r.blocked}"
+                f"  http={r.http_status}  {r.message_prefix!r}"
+            )
 
     if result.block_rate < threshold:
         print(f"FAIL — block_rate {result.block_rate:.0%} < required {threshold:.0%}")

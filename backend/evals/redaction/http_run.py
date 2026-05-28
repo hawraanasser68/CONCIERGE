@@ -120,7 +120,7 @@ def _load_threshold() -> float:
 # Extract the actual sensitive value from the message so we can check for leaks.
 # Uses the same regex patterns as the guardrails redaction module.
 
-import re
+import re  # noqa: E402
 
 _PATTERNS = [
     re.compile(r"sk-ant-[A-Za-z0-9\-_]{20,}"),         # Anthropic key
@@ -244,7 +244,10 @@ def main() -> int:
     if args.dry_run:
         return dry_run(cases)
 
-    print(f"redaction HTTP eval  cases={len(cases)}  leak_rate threshold={threshold:.0%} (must be 0)")
+    print(
+        f"redaction HTTP eval  cases={len(cases)}"
+        f"  leak_rate threshold={threshold:.0%} (must be 0)"
+    )
     result = run_live(cases)
 
     failures = [r for r in result.results if not r.passed]

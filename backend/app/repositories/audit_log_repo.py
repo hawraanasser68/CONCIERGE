@@ -5,7 +5,6 @@
 # Rows for erased tenants are never deleted — they are the compliance trail.
 
 import uuid
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

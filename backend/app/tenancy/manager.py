@@ -21,7 +21,6 @@ from app.models.chunk import Chunk
 from app.models.cms import CmsPage
 from app.models.escalation import Escalation
 from app.models.lead import Lead
-from app.models.tenant import Tenant
 from app.models.tenant_costs import TenantCosts
 from app.models.user import User
 from app.models.widget import Widget

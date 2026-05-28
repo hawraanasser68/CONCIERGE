@@ -14,8 +14,8 @@
 # Idempotent: skips pages whose slug already exists for Tenant A.
 
 import asyncio
-import sys
 import os
+import sys
 import uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))

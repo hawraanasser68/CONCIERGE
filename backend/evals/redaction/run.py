@@ -8,13 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from app.services.redaction import PATTERNS, redact
-
+from app.services.redaction import PATTERNS, redact  # noqa: E402
 
 DEFAULT_CASES_PATH = Path(__file__).with_name("cases.jsonl")
 REQUIRED_FIELDS = {"id", "message", "expected"}

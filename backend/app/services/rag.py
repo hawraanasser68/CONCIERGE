@@ -19,8 +19,8 @@ import structlog
 
 from app.models.chunk import Chunk
 from app.repositories.chunk_repo import chunk_repo
-from app.services.embeddings_client import EmbeddingsClient
 from app.services.cost_meter import record_embed_usage
+from app.services.embeddings_client import EmbeddingsClient
 
 log = structlog.get_logger()
 

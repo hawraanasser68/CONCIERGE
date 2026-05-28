@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-
 PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bsk-ant-[A-Za-z0-9_-]{10,}\b"), "[REDACTED-ANTHROPIC-KEY]"),
     (re.compile(r"\bsk-[A-Za-z0-9_-]{10,}\b"), "[REDACTED-APIKEY]"),

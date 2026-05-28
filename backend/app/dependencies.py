@@ -16,9 +16,9 @@ from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.widget_token import verify_widget_jwt
 # Safe top-level import: auth/users.py uses request.app.state directly, not dependencies.py
 from app.auth.users import fastapi_users
+from app.auth.widget_token import verify_widget_jwt
 from app.models.tenant import Tenant
 from app.models.widget import Widget
 from app.tenancy.rls import set_manager_rls, set_tenant_rls

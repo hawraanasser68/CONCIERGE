@@ -162,6 +162,7 @@ def _infer_tools_from_response(response_text: str) -> list[str]:
 def _check_db_artifacts(session_id: str, tenant_id: str, db_url: str) -> dict[str, bool]:
     try:
         import asyncio
+
         from sqlalchemy import text
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -174,11 +175,17 @@ def _check_db_artifacts(session_id: str, tenant_id: str, db_url: str) -> dict[st
                     {"tid": tenant_id},
                 )
                 lead_n = (await sess.execute(
-                    text("SELECT COUNT(*) FROM leads WHERE session_id = :sid AND tenant_id = :tid::uuid"),
+                    text(
+                        "SELECT COUNT(*) FROM leads"
+                        " WHERE session_id = :sid AND tenant_id = :tid::uuid"
+                    ),
                     {"sid": session_id, "tid": tenant_id},
                 )).scalar()
                 esc_n = (await sess.execute(
-                    text("SELECT COUNT(*) FROM escalations WHERE session_id = :sid AND tenant_id = :tid::uuid"),
+                    text(
+                        "SELECT COUNT(*) FROM escalations"
+                        " WHERE session_id = :sid AND tenant_id = :tid::uuid"
+                    ),
                     {"sid": session_id, "tid": tenant_id},
                 )).scalar()
             await engine.dispose()

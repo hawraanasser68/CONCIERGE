@@ -8,11 +8,10 @@
 #   { tenant_id, widget_id, origin, session_id, type="widget_session", iat, exp }
 # Algorithm: HS256   TTL: 1 hour   Secret: from Vault at secret/widget/signing_key
 
-import uuid
 from datetime import datetime, timezone
 
 import jwt
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 
 ALGORITHM = "HS256"
 TTL_SECONDS = 3600          # 1 hour

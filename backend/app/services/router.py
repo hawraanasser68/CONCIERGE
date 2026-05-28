@@ -67,8 +67,8 @@ _CAPTURE_LEAD_TOOL = {
         "type": "object",
         "properties": {
             "name":    {"type": "string", "description": "Visitor name, max 255 characters"},
-            "contact": {"type": "string", "description": "Email or E.164 phone, max 255 characters"},
-            "intent":  {"type": "string", "description": "What the visitor wants, max 1000 characters"},
+            "contact": {"type": "string", "description": "Email or E.164 phone, max 255 chars"},
+            "intent":  {"type": "string", "description": "What the visitor wants, max 1000 chars"},
         },
         "required": ["name", "contact", "intent"],
     },
@@ -80,7 +80,7 @@ _ESCALATE_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "reason":          {"type": "string", "description": "Why escalation is needed, max 500 characters"},
+            "reason": {"type": "string", "description": "Why escalation is needed, max 500 chars"},
             "conversation_id": {"type": "string", "description": "The session UUID"},
         },
         "required": ["reason", "conversation_id"],
@@ -122,7 +122,9 @@ async def _faq_workflow(
     messages.append({"role": "user", "content": message})
 
     response = await llm_client.complete(messages=messages, max_tokens=1024, tenant_id=tenant_id)
-    await record_llm_usage(session, tenant_id, response.usage.input_tokens, response.usage.output_tokens)
+    await record_llm_usage(
+        session, tenant_id, response.usage.input_tokens, response.usage.output_tokens
+    )
     return response.content
 
 
@@ -148,9 +150,15 @@ async def _lead_workflow(
     response = await llm_client.complete(
         messages=messages, tools=[_CAPTURE_LEAD_TOOL], max_tokens=512, tenant_id=tenant_id
     )
-    await record_llm_usage(session, tenant_id, response.usage.input_tokens, response.usage.output_tokens)
+    await record_llm_usage(
+        session, tenant_id, response.usage.input_tokens, response.usage.output_tokens
+    )
 
-    if response.stop_reason == "tool_use" and response.tool_use and response.tool_use["name"] == "capture_lead":
+    if (
+        response.stop_reason == "tool_use"
+        and response.tool_use
+        and response.tool_use["name"] == "capture_lead"
+    ):
         inp = response.tool_use["input"]
         result = await capture_lead(
             name=inp.get("name", ""),
@@ -162,11 +170,14 @@ async def _lead_workflow(
             redis=redis,
         )
         if result.get("captured"):
-            return "Thank you! I've noted your details and our team will be in touch with you shortly."
-        return result.get("reason", "I wasn't able to capture your details right now. Please try again.")
+            return "Thank you! I've noted your details and our team will be in touch shortly."
+        return result.get(
+            "reason", "I wasn't able to capture your details right now. Please try again."
+        )
 
     # LLM chose to ask for more info rather than call the tool
-    return response.content or "I'd love to connect you with our team. Could you share your name and contact details?"
+    fallback = "I'd love to connect you with our team. Could you share your name and contact info?"
+    return response.content or fallback
 
 
 # ── Direct workflow: escalate (single LLM call → escalate tool) ──────────────
@@ -190,9 +201,15 @@ async def _escalate_workflow(
     response = await llm_client.complete(
         messages=messages, tools=[_ESCALATE_TOOL], max_tokens=256, tenant_id=tenant_id
     )
-    await record_llm_usage(session, tenant_id, response.usage.input_tokens, response.usage.output_tokens)
+    await record_llm_usage(
+        session, tenant_id, response.usage.input_tokens, response.usage.output_tokens
+    )
 
-    if response.stop_reason == "tool_use" and response.tool_use and response.tool_use["name"] == "escalate":
+    if (
+        response.stop_reason == "tool_use"
+        and response.tool_use
+        and response.tool_use["name"] == "escalate"
+    ):
         inp = response.tool_use["input"]
         await escalate(
             reason=inp.get("reason", message[:500]),
@@ -202,7 +219,8 @@ async def _escalate_workflow(
         )
         return "I've connected you with our support team. A human agent will be with you shortly."
 
-    return response.content or "I'm escalating this to our team. Someone will reach out to you shortly."
+    fallback = "I'm escalating this to our team. Someone will reach out to you shortly."
+    return response.content or fallback
 
 
 # ── Main router ───────────────────────────────────────────────────────────────

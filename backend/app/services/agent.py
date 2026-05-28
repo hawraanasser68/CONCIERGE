@@ -107,9 +107,9 @@ async def _dispatch(
     embeddings_client: EmbeddingsClient,
 ) -> str:
     """Route a tool call to the matching Python function. Returns JSON string."""
-    from app.tools.rag_search import rag_search
     from app.tools.capture_lead import capture_lead
     from app.tools.escalate import escalate
+    from app.tools.rag_search import rag_search
 
     if name == "rag_search":
         result = await rag_search(

@@ -45,12 +45,16 @@ class GuardrailsClient:
     async def check_input(
         self, message: str, tenant_id: uuid.UUID, session_id: str
     ) -> GuardrailResult:
-        return await self._check(message, tenant_id, session_id, direction="input", path="/check/input")
+        return await self._check(
+            message, tenant_id, session_id, direction="input", path="/check/input"
+        )
 
     async def check_output(
         self, message: str, tenant_id: uuid.UUID, session_id: str
     ) -> GuardrailResult:
-        return await self._check(message, tenant_id, session_id, direction="output", path="/check/output")
+        return await self._check(
+            message, tenant_id, session_id, direction="output", path="/check/output"
+        )
 
     async def _check(
         self,

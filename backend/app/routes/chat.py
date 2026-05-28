@@ -19,9 +19,8 @@ import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_redis, get_session, get_widget_session
 from app.models.agent_config import AgentConfig
@@ -30,7 +29,11 @@ from app.repositories.agent_config_repo import agent_config_repo
 from app.services.classifier_client import ClassifierClient, get_classifier_client
 from app.services.cost_meter import record_classify_call
 from app.services.embeddings_client import EmbeddingsClient, get_embeddings_client
-from app.services.guardrails_client import GuardrailsClient, GuardrailsUnavailableError, get_guardrails_client
+from app.services.guardrails_client import (
+    GuardrailsClient,
+    GuardrailsUnavailableError,
+    get_guardrails_client,
+)
 from app.services.llm_client import LLMClient, get_llm_client
 from app.services.rate_limiter import check_rate_limit, increment_rate_limit
 from app.services.router import route
