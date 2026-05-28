@@ -83,7 +83,8 @@ jobs:
 
       - name: Check modelserver image size (<500MB)
         run: |
-          SIZE=$(docker image inspect concierge-modelserver --format='{{.Size}}')
+          IMAGE="${COMPOSE_PROJECT_NAME}-modelserver"
+          SIZE=$(docker image inspect "$IMAGE" --format='{{.Size}}')
           echo "modelserver image size: ${SIZE} bytes"
           if [ "$SIZE" -gt 500000000 ]; then
             echo "ERROR: modelserver image exceeds 500MB"
