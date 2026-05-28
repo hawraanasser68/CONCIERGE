@@ -150,6 +150,37 @@ def test_low_confidence_returns_ambiguous():
     assert response.intent == "ambiguous"
 
 
+def test_classify_raw_ignores_threshold_returns_top_class():
+    # Same low-confidence input that /classify routes to "ambiguous" must return
+    # the real top class via /classify_raw (eval path, no threshold applied).
+    module = _load_module()
+    bundle = FakeBundle(
+        model=FakeModel([0.05, 0.79, 0.05, 0.05, 0.06]),  # top = question(faq) @ 0.79 < 0.80
+        internal_to_contract={
+            "spam": "spam",
+            "question": "faq",
+            "lead": "lead",
+            "escalate": "escalate",
+            "unknown_or_agent": "ambiguous",
+        },
+        runtime_threshold=0.8,
+        deployed_model="classical",
+        embedding_name="openai/text-embedding-3-small",
+    )
+    request = _fake_request(module, bundle=bundle)
+    payload = module.ClassifyRequest(
+        text="I need some help",
+        tenant_id="11111111-1111-1111-1111-111111111111",
+    )
+
+    routed = asyncio.run(module.classify(payload, request, None))
+    raw = asyncio.run(module.classify_raw(payload, request, None))
+
+    assert routed.intent == "ambiguous"          # threshold applied on /classify
+    assert raw.intent == "faq"                    # threshold NOT applied on /classify_raw
+    assert abs(raw.confidence - 0.79) < 1e-9
+
+
 def test_classify_rejects_text_over_4000_characters_with_422_mapping():
     module = _load_module()
 

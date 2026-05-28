@@ -1,7 +1,10 @@
 # Owner B — backend/evals/classifier/run.py
 #
-# Classifier eval runner. Calls POST /classify on the modelserver for each
+# Classifier eval runner. Calls POST /classify_raw on the modelserver for each
 # example in classifier/golden.jsonl and computes macro-F1 plus per-class F1.
+# /classify_raw returns the model's top class WITHOUT the runtime confidence
+# threshold, so this eval measures model quality rather than the post-threshold
+# routing decision (production still uses /classify with the 0.80 gate).
 # Exits 1 if macro-F1 is below the threshold in eval_thresholds.yaml.
 #
 # Threshold: classifier.macro_f1 (from eval_thresholds.yaml; starts at 0.0,
@@ -142,7 +145,7 @@ def _load_threshold() -> float:
 def _classify_one(client, message: str, url: str, token: str,
                   tenant_id: str) -> tuple[str, float]:
     resp = client.post(
-        f"{url}/classify",
+        f"{url}/classify_raw",
         json={"text": message, "tenant_id": tenant_id},
         headers={"Authorization": f"Bearer {token}"},
         timeout=15,
