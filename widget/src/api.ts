@@ -83,8 +83,10 @@ export async function sendMessage(message: string): Promise<ChatResult> {
   if (!response.ok) return { ok: false, code: "error" };
 
   try {
-    const data = (await response.json()) as { reply?: string };
-    return { ok: true, reply: data.reply ?? "" };
+    // Backend chat.py returns MessageResponse(response=..., session_id=...).
+    // We surface the assistant text as `reply` internally so Widget.tsx stays decoupled.
+    const data = (await response.json()) as { response?: string };
+    return { ok: true, reply: data.response ?? "" };
   } catch {
     return { ok: false, code: "error" };
   }
