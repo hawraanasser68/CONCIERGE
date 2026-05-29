@@ -1,7 +1,10 @@
 # Owner B — backend/evals/classifier/run.py
 #
-# Classifier eval runner. Calls POST /classify on the modelserver for each
+# Classifier eval runner. Calls POST /classify_raw on the modelserver for each
 # example in classifier/golden.jsonl and computes macro-F1 plus per-class F1.
+# /classify_raw returns the model's top class WITHOUT the runtime confidence
+# threshold, so this eval measures model quality rather than the post-threshold
+# routing decision (production still uses /classify with the 0.80 gate).
 # Exits 1 if macro-F1 is below the threshold in eval_thresholds.yaml.
 #
 # Threshold: classifier.macro_f1 (from eval_thresholds.yaml; starts at 0.0,
@@ -124,17 +127,32 @@ def dry_run(examples: list[Example]) -> int:
 # ── Threshold loading ─────────────────────────────────────────────────────────
 
 def _load_threshold() -> float:
+    """Load the classifier macro-F1 gate. Fail loudly if it can't be read.
+
+    A missing/unreadable thresholds file must NOT silently fall back to 0.0:
+    a 0.0 gate passes any model and turns the CI check into a rubber stamp
+    (observed when the eval runs in-container without eval_thresholds.yaml present).
+    """
     thresholds_file = os.environ.get(
         "THRESHOLDS_FILE",
         str(Path(__file__).resolve().parents[3] / "eval_thresholds.yaml"),
     )
-    try:
-        import yaml  # type: ignore[import]
-        with open(thresholds_file) as f:
-            data = yaml.safe_load(f)
-        return float(data.get("classifier", {}).get("macro_f1", 0.0))
-    except Exception:
-        return 0.0
+    if not os.path.exists(thresholds_file):
+        raise FileNotFoundError(
+            f"thresholds file not found: {thresholds_file}. "
+            "Set THRESHOLDS_FILE or mount eval_thresholds.yaml into the eval environment. "
+            "Refusing to default to 0.0 (that would disable the CI gate)."
+        )
+    import yaml  # type: ignore[import]
+    with open(thresholds_file) as f:
+        data = yaml.safe_load(f)
+    classifier_cfg = (data or {}).get("classifier") or {}
+    if "macro_f1" not in classifier_cfg:
+        raise KeyError(
+            f"classifier.macro_f1 missing from {thresholds_file}. "
+            "Refusing to default to 0.0 (that would disable the CI gate)."
+        )
+    return float(classifier_cfg["macro_f1"])
 
 
 # ── Live runner ───────────────────────────────────────────────────────────────
@@ -142,7 +160,7 @@ def _load_threshold() -> float:
 def _classify_one(client, message: str, url: str, token: str,
                   tenant_id: str) -> tuple[str, float]:
     resp = client.post(
-        f"{url}/classify",
+        f"{url}/classify_raw",
         json={"text": message, "tenant_id": tenant_id},
         headers={"Authorization": f"Bearer {token}"},
         timeout=15,

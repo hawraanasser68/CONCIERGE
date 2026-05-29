@@ -284,16 +284,9 @@ async def health(request: Request) -> dict[str, str]:
     return {"status": "ok", "classifier": classifier, "embedding": embedding}
 
 
-@app.post("/classify", response_model=ClassifyResponse)
-async def classify(
-    payload: ClassifyRequest,
-    request: Request,
-    _: None = Depends(_require_service_token),
-) -> ClassifyResponse:
-    bundle = _get_bundle(request)
-    start = time.perf_counter()
-
-    probabilities = bundle.model.predict_proba([payload.text])[0]
+def _predict_intent(bundle: LoadedClassifier, text: str) -> tuple[str, float]:
+    """Return (contract_label, confidence) for the model's top class — no threshold applied."""
+    probabilities = bundle.model.predict_proba([text])[0]
     labels = list(bundle.model.classes_)
     best_index = max(range(len(probabilities)), key=lambda idx: float(probabilities[idx]))
     internal_label = str(labels[best_index])
@@ -304,7 +297,19 @@ async def classify(
             status_code=503,
             detail={"error": f"Unknown classifier label: {internal_label}", "code": "MODEL_NOT_LOADED"},
         )
+    return mapped_label, confidence
 
+
+@app.post("/classify", response_model=ClassifyResponse)
+async def classify(
+    payload: ClassifyRequest,
+    request: Request,
+    _: None = Depends(_require_service_token),
+) -> ClassifyResponse:
+    bundle = _get_bundle(request)
+    start = time.perf_counter()
+
+    mapped_label, confidence = _predict_intent(bundle, payload.text)
     intent = mapped_label if confidence >= bundle.runtime_threshold else "ambiguous"
     latency_ms = (time.perf_counter() - start) * 1000
     LOGGER.info(
@@ -315,6 +320,23 @@ async def classify(
         latency_ms,
     )
     return ClassifyResponse(intent=intent, confidence=confidence)
+
+
+@app.post("/classify_raw", response_model=ClassifyResponse)
+async def classify_raw(
+    payload: ClassifyRequest,
+    request: Request,
+    _: None = Depends(_require_service_token),
+) -> ClassifyResponse:
+    """Raw model prediction WITHOUT the runtime confidence threshold.
+
+    Eval-only: lets the classifier eval measure model quality (top-class argmax)
+    rather than the post-threshold routing decision. Production never calls this —
+    the agent/router uses /classify, which still applies runtime_serving_threshold.
+    """
+    bundle = _get_bundle(request)
+    mapped_label, confidence = _predict_intent(bundle, payload.text)
+    return ClassifyResponse(intent=mapped_label, confidence=confidence)
 
 
 @app.post("/embed")
