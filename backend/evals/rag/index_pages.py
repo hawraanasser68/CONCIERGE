@@ -45,7 +45,7 @@ async def main() -> None:
             result = await session.execute(
                 select(CmsPage).where(
                     CmsPage.tenant_id == TENANT_A,
-                    CmsPage.is_published == True,
+                    CmsPage.is_published,
                 )
             )
             pages = result.scalars().all()

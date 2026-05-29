@@ -160,8 +160,8 @@ PAGES = [
 
 async def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--endpoint", default=None, help="Backend base URL (accepted for compat, unused)")
-    args = parser.parse_args()
+    parser.add_argument("--endpoint", default=None, help="Backend base URL (compat, unused)")
+    parser.parse_args()
 
     modelserver_token = os.getenv("MODELSERVER_TOKEN", "").strip()
     modelserver_url = os.getenv("MODELSERVER_URL", "http://modelserver:8001").rstrip("/")
@@ -215,7 +215,7 @@ async def main() -> None:
             result = await session.execute(
                 select(CmsPage).where(
                     CmsPage.tenant_id == TENANT_A,
-                    CmsPage.is_published == True,
+                    CmsPage.is_published,
                 )
             )
             pages = result.scalars().all()
