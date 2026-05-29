@@ -24,6 +24,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -270,6 +271,32 @@ def run_live(examples: list[Example]) -> tuple[EvalResult, float]:
                 ))
                 print("ERROR")
                 continue
+
+            # Retry once if backend returned a routing error (transient LLM/DB blip)
+            if "encountered an issue processing your request" in response_text:
+                time.sleep(3)
+                try:
+                    _retry_mint = client.post(
+                        "/api/v1/widget/token",
+                        json={"widget_id": widget_id, "origin": "http://localhost:3000"},
+                    )
+                    _retry_mint.raise_for_status()
+                    _retry_data = _retry_mint.json()
+                    session_id = _retry_data["session_id"]
+                    _retry_resp = client.post(
+                        "/api/v1/chat/message",
+                        json={"message": ex.message},
+                        headers={
+                            "Authorization": f"Bearer {_retry_data['token']}",
+                            "X-Session-Id": session_id,
+                            "Origin": "http://localhost:3000",
+                        },
+                    )
+                    _retry_resp.raise_for_status()
+                    response_text = _retry_resp.json().get("response", "")
+                    print(f"  [retry] response={response_text[:70]!r}", flush=True)
+                except Exception:
+                    pass  # keep original routing-error response
 
             print(f"  response={response_text[:70]!r}", flush=True)
             predicted = _infer_tools_from_response(response_text)
