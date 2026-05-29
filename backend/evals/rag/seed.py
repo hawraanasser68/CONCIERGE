@@ -1,18 +1,25 @@
 # Owner B — backend/evals/rag/seed.py
 #
-# Seeds CMS pages for Tenant A (Bloom Florista) into the database so the RAG
-# eval pipeline has realistic content to retrieve and score against.
+# Seeds CMS pages for Tenant A (Bloom Florista) into the database and indexes
+# them (creates embeddings/chunks) so the RAG eval pipeline has content to
+# retrieve and score against.
 #
 # Inserts directly via SQLAlchemy — does not go through the HTTP API so it works
-# even when the server is not running. Pages are marked is_published=True; chunk
-# indexing must be triggered separately once the embeddings modelserver is live
-# (POST /api/v1/cms/pages/{id}/publish or restart after modelserver is healthy).
+# even when the server is not running. When MODELSERVER_TOKEN is set, also calls
+# index_page() directly to generate chunks via the embeddings modelserver.
 #
-# Usage:
+# Usage (local, inside Docker):
 #   docker compose exec backend sh -c "PYTHONPATH=/app python evals/rag/seed.py"
 #
-# Idempotent: skips pages whose slug already exists for Tenant A.
+# Usage (CI, on runner):
+#   MODELSERVER_TOKEN=<tok> python backend/evals/rag/seed.py --endpoint http://localhost:8000
+#
+# --endpoint is accepted for backward compatibility but currently unused; seeding
+# always goes direct-to-DB so it works without a running backend.
+#
+# Idempotent: skips pages whose slug already exists for Tenant A; always re-indexes.
 
+import argparse
 import asyncio
 import os
 import sys
@@ -20,11 +27,15 @@ import uuid
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
+import httpx
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import get_settings
 from app.models.cms import CmsPage
+from app.services.embeddings_client import EmbeddingsClient
+from app.services.rag import index_page
 from app.tenancy.rls import set_tenant_rls
 
 TENANT_A = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -148,10 +159,18 @@ PAGES = [
 
 
 async def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--endpoint", default=None, help="Backend base URL (accepted for compat, unused)")
+    args = parser.parse_args()
+
+    modelserver_token = os.getenv("MODELSERVER_TOKEN", "").strip()
+    modelserver_url = os.getenv("MODELSERVER_URL", "http://modelserver:8001").rstrip("/")
+
     settings = get_settings()
     engine = create_async_engine(settings.database_url, echo=False)
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
+    # ── Seed pages ────────────────────────────────────────────────────────────
     async with factory() as session:
         await set_tenant_rls(session, TENANT_A)
 
@@ -178,10 +197,42 @@ async def main() -> None:
 
         await session.commit()
 
-    await engine.dispose()
     print(f"\ndone — {created} created, {skipped} skipped.")
-    print("Trigger indexing: POST /api/v1/cms/pages/{id}/publish for each page")
-    print("(requires the embeddings modelserver to be running)")
+
+    # ── Index pages (generate embeddings/chunks) ──────────────────────────────
+    if not modelserver_token:
+        print("MODELSERVER_TOKEN not set — skipping indexing.")
+        print("Run with MODELSERVER_TOKEN=<tok> to index, or trigger via CMS publish endpoint.")
+        await engine.dispose()
+        return
+
+    print(f"\nIndexing via {modelserver_url} ...")
+    async with httpx.AsyncClient(base_url=modelserver_url, timeout=60.0) as http_client:
+        embeddings_client = EmbeddingsClient(http_client=http_client, token=modelserver_token)
+
+        async with factory() as session:
+            await set_tenant_rls(session, TENANT_A)
+            result = await session.execute(
+                select(CmsPage).where(
+                    CmsPage.tenant_id == TENANT_A,
+                    CmsPage.is_published == True,
+                )
+            )
+            pages = result.scalars().all()
+
+        for page in pages:
+            async with factory() as session:
+                await set_tenant_rls(session, TENANT_A)
+                n = await index_page(
+                    page.id, TENANT_A, page.title, page.content,
+                    source_url=None, session=session,
+                    embeddings_client=embeddings_client,
+                )
+                await session.commit()
+            print(f"  indexed  '{page.slug}' → {n} chunks")
+
+    await engine.dispose()
+    print("\nAll pages seeded and indexed.")
 
 
 if __name__ == "__main__":
