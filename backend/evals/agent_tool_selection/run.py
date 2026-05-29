@@ -271,6 +271,7 @@ def run_live(examples: list[Example]) -> tuple[EvalResult, float]:
                 print("ERROR")
                 continue
 
+            print(f"  response={response_text[:70]!r}", flush=True)
             predicted = _infer_tools_from_response(response_text)
             if db_url:
                 for tool, hit in _check_db_artifacts(session_id, tenant_id, db_url).items():
