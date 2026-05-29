@@ -244,35 +244,41 @@ jobs:
             | python -c "import sys,json;[print(p['id']) for p in json.load(sys.stdin)]")
           # /publish is a TOGGLE on is_published. seed.py writes rows directly
           # to the DB with is_published=true (bypassing routes), so a single
-          # POST flips them off and schedules chunk DELETION. Call twice per
+          # POST flips them off and schedules chunk DELETION. Two posts per
           # page: first toggle off (no-op delete since no chunks exist yet),
           # then toggle on to fire the _schedule_index background task.
+          #
+          # Publish SERIALLY (one page at a time, wait for that page's chunks
+          # to appear before the next page) so the backend's shared httpx
+          # client pool — created with default limits in lifespan.py — doesn't
+          # blow up with httpcore.PoolTimeout when 6 pages embed in parallel.
           for PAGE_ID in $PAGE_IDS; do
             curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/cms/pages/$PAGE_ID/publish" \
               -H "Authorization: Bearer $ADMIN_JWT" > /dev/null
             curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/cms/pages/$PAGE_ID/publish" \
               -H "Authorization: Bearer $ADMIN_JWT" > /dev/null
-            echo "indexed $PAGE_ID"
-          done
-          # Poll the chunks table for up to 120s so we don't race the
-          # background indexer (each page → split → OpenAI embedding → INSERT).
-          for i in $(seq 1 60); do
-            COUNT=$(docker compose exec -T db \
-              psql -U concierge -d concierge -tAc "SELECT COUNT(*) FROM chunks;" | tr -d '[:space:]')
-            if [ "${COUNT:-0}" -gt 0 ]; then
-              echo "chunks indexed: $COUNT (after ${i}x2s)"
-              break
+            # Wait up to 60s for this page's chunks to land before moving on.
+            INDEXED=0
+            for i in $(seq 1 30); do
+              COUNT=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
+                "SELECT COUNT(*) FROM chunks WHERE page_id = '$PAGE_ID';" | tr -d '[:space:]')
+              if [ "${COUNT:-0}" -gt 0 ]; then
+                INDEXED=1
+                echo "indexed $PAGE_ID (chunks=$COUNT after ${i}x2s)"
+                break
+              fi
+              sleep 2
+            done
+            if [ "$INDEXED" -eq 0 ]; then
+              echo "ERROR: page $PAGE_ID did not index within 60s; dumping logs"
+              docker compose logs --tail=120 backend
+              docker compose logs --tail=60 modelserver
+              exit 1
             fi
-            sleep 2
           done
-          FINAL=$(docker compose exec -T db \
+          TOTAL=$(docker compose exec -T db \
             psql -U concierge -d concierge -tAc "SELECT COUNT(*) FROM chunks;" | tr -d '[:space:]')
-          if [ "${FINAL:-0}" -eq 0 ]; then
-            echo "ERROR: chunks table still empty after 120s; dumping backend logs"
-            docker compose logs --tail=120 backend
-            docker compose logs --tail=60 modelserver
-            exit 1
-          fi
+          echo "all pages indexed; total chunks=$TOTAL"
       - name: Run RAG eval (live; in backend container)
         # run.py needs sqlalchemy + asyncpg + httpx + pyyaml for retrieval mode
         # and the anthropic SDK for the --answer judge; all already in backend.
