@@ -142,42 +142,47 @@ async def _lead_workflow(
 ) -> str:
     from app.tools.capture_lead import capture_lead
 
-    system = _LEAD_SYSTEM.format(persona_name=agent_config.persona_name)
-    messages = [{"role": "system", "content": system}]
-    messages.extend(_history_to_messages(history))
-    messages.append({"role": "user", "content": message})
+    try:
+        system = _LEAD_SYSTEM.format(persona_name=agent_config.persona_name)
+        messages = [{"role": "system", "content": system}]
+        messages.extend(_history_to_messages(history))
+        messages.append({"role": "user", "content": message})
 
-    response = await llm_client.complete(
-        messages=messages, tools=[_CAPTURE_LEAD_TOOL], max_tokens=512, tenant_id=tenant_id
-    )
-    await record_llm_usage(
-        session, tenant_id, response.usage.input_tokens, response.usage.output_tokens
-    )
-
-    if (
-        response.stop_reason == "tool_use"
-        and response.tool_use
-        and response.tool_use["name"] == "capture_lead"
-    ):
-        inp = response.tool_use["input"]
-        result = await capture_lead(
-            name=inp.get("name", ""),
-            contact=inp.get("contact", ""),
-            intent=inp.get("intent", message[:1000]),
-            tenant_id=tenant_id,
-            session_id=session_id,
-            session=session,
-            redis=redis,
+        response = await llm_client.complete(
+            messages=messages, tools=[_CAPTURE_LEAD_TOOL], max_tokens=512, tenant_id=tenant_id
         )
-        if result.get("captured"):
-            return "Thank you! I've noted your details and our team will be in touch shortly."
-        return result.get(
-            "reason", "I wasn't able to capture your details right now. Please try again."
+        await record_llm_usage(
+            session, tenant_id, response.usage.input_tokens, response.usage.output_tokens
         )
 
-    # LLM chose to ask for more info rather than call the tool
-    fallback = "I'd love to connect you with our team. Could you share your name and contact info?"
-    return response.content or fallback
+        if (
+            response.stop_reason == "tool_use"
+            and response.tool_use
+            and response.tool_use["name"] == "capture_lead"
+        ):
+            inp = response.tool_use["input"]
+            result = await capture_lead(
+                name=inp.get("name", ""),
+                contact=inp.get("contact", ""),
+                intent=inp.get("intent", message[:1000]),
+                tenant_id=tenant_id,
+                session_id=session_id,
+                session=session,
+                redis=redis,
+            )
+            if result.get("captured"):
+                return "Thank you! I've noted your details and our team will be in touch shortly."
+            return result.get(
+                "reason", "I wasn't able to capture your details right now. Please try again."
+            )
+
+        # LLM chose to ask for more info rather than call the tool
+        fallback = "I'd love to connect you with our team. Could you share your contact info?"
+        return response.content or fallback
+
+    except Exception as exc:
+        log.error("lead_workflow_error", tenant_id=str(tenant_id), error=str(exc))
+        return "Thank you for reaching out! Our team will follow up with you shortly."
 
 
 # ── Direct workflow: escalate (single LLM call → escalate tool) ──────────────
