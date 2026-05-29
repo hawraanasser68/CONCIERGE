@@ -177,12 +177,22 @@ async def run_agent(
     messages.append({"role": "user", "content": message})
 
     for iteration in range(effective_cap):
-        response = await llm_client.complete(
-            messages=messages,
-            tools=active_tools or None,
-            max_tokens=2048,
-            tenant_id=tenant_id,
-        )
+        try:
+            response = await llm_client.complete(
+                messages=messages,
+                tools=active_tools or None,
+                max_tokens=2048,
+                tenant_id=tenant_id,
+            )
+        except Exception as exc:
+            log.error(
+                "agent_llm_error",
+                tenant_id=str(tenant_id),
+                session_id=session_id,
+                iteration=iteration,
+                error=str(exc),
+            )
+            return "Our team will follow up with you shortly. Please try again if needed."
         await record_llm_usage(
             session, tenant_id,
             tokens_in=response.usage.input_tokens,
