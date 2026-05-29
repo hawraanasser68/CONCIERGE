@@ -164,13 +164,16 @@ jobs:
           cp .env.example .env
           docker compose up -d --wait --timeout 180
           docker compose exec -T -w /app backend python -m scripts.seed_dev_data
-      - name: Push embed API key to Vault and reload modelserver
+      - name: Push API keys to Vault and reload services
         run: |
           docker compose exec -T \
             -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
             vault kv put secret/embed/api_key key="$OPENAI_API_KEY"
-          docker compose restart modelserver
-          sleep 15
+          docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+            vault kv put secret/llm/api_key key="$LLM_API_KEY"
+          docker compose restart modelserver backend
+          sleep 20
       - name: Read modelserver token from Vault
         run: |
           TOKEN=$(docker compose exec -T \
@@ -218,13 +221,16 @@ jobs:
           cp .env.example .env
           docker compose up -d --wait --timeout 180
           docker compose exec -T -w /app backend python -m scripts.seed_dev_data
-      - name: Push embed API key to Vault and reload modelserver
+      - name: Push API keys to Vault and reload services
         run: |
           docker compose exec -T \
             -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
             vault kv put secret/embed/api_key key="$OPENAI_API_KEY"
-          docker compose restart modelserver
-          sleep 15
+          docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+            vault kv put secret/llm/api_key key="$LLM_API_KEY"
+          docker compose restart modelserver backend
+          sleep 20
       - name: Generate widget token (Tenant A)
         run: |
           WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
