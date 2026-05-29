@@ -136,7 +136,7 @@ jobs:
           docker compose up -d --wait --timeout 180
       - name: Read modelserver token from Vault
         run: |
-          TOKEN=$(docker compose exec -T -e VAULT_TOKEN=root vault \
+          TOKEN=$(docker compose exec -T -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
             vault kv get -field=token secret/svc/modelserver | tr -d '[:space:]')
           if [ -z "$TOKEN" ]; then echo "ERROR: modelserver token empty"; exit 1; fi
           echo "MODELSERVER_TOKEN=$TOKEN" >> "$GITHUB_ENV"
@@ -207,7 +207,7 @@ jobs:
           echo "WIDGET_TOKEN=$TOKEN" >> "$GITHUB_ENV"
       - name: Read modelserver token from Vault
         run: |
-          TOKEN=$(docker compose exec -T -e VAULT_TOKEN=root vault \
+          TOKEN=$(docker compose exec -T -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
             vault kv get -field=token secret/svc/modelserver | tr -d '[:space:]')
           if [ -z "$TOKEN" ]; then echo "ERROR: modelserver token empty"; exit 1; fi
           echo "MODELSERVER_TOKEN=$TOKEN" >> "$GITHUB_ENV"
