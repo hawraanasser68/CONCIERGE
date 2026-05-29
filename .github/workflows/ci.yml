@@ -247,9 +247,25 @@ jobs:
               -H "Authorization: Bearer $ADMIN_JWT" > /dev/null
             echo "published $PAGE_ID"
           done
-          # Give the index_page background task time to embed + INSERT chunks
-          # before the retrieval eval queries the chunks table.
-          sleep 20
+          # Poll the chunks table for up to 120s so we don't race the
+          # background indexer (each page → split → OpenAI embedding → INSERT).
+          for i in $(seq 1 60); do
+            COUNT=$(docker compose exec -T db \
+              psql -U concierge -d concierge -tAc "SELECT COUNT(*) FROM chunks;" | tr -d '[:space:]')
+            if [ "${COUNT:-0}" -gt 0 ]; then
+              echo "chunks indexed: $COUNT (after ${i}x2s)"
+              break
+            fi
+            sleep 2
+          done
+          FINAL=$(docker compose exec -T db \
+            psql -U concierge -d concierge -tAc "SELECT COUNT(*) FROM chunks;" | tr -d '[:space:]')
+          if [ "${FINAL:-0}" -eq 0 ]; then
+            echo "ERROR: chunks table still empty after 120s; dumping backend logs"
+            docker compose logs --tail=120 backend
+            docker compose logs --tail=60 modelserver
+            exit 1
+          fi
       - name: Run RAG eval (live; in backend container)
         # run.py needs sqlalchemy + asyncpg + httpx + pyyaml for retrieval mode
         # and the anthropic SDK for the --answer judge; all already in backend.
