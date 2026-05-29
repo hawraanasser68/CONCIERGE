@@ -242,10 +242,17 @@ jobs:
           PAGE_IDS=$(curl -fsS "$CONCIERGE_BASE_URL/api/v1/cms/pages" \
             -H "Authorization: Bearer $ADMIN_JWT" \
             | python -c "import sys,json;[print(p['id']) for p in json.load(sys.stdin)]")
+          # /publish is a TOGGLE on is_published. seed.py writes rows directly
+          # to the DB with is_published=true (bypassing routes), so a single
+          # POST flips them off and schedules chunk DELETION. Call twice per
+          # page: first toggle off (no-op delete since no chunks exist yet),
+          # then toggle on to fire the _schedule_index background task.
           for PAGE_ID in $PAGE_IDS; do
             curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/cms/pages/$PAGE_ID/publish" \
               -H "Authorization: Bearer $ADMIN_JWT" > /dev/null
-            echo "published $PAGE_ID"
+            curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/cms/pages/$PAGE_ID/publish" \
+              -H "Authorization: Bearer $ADMIN_JWT" > /dev/null
+            echo "indexed $PAGE_ID"
           done
           # Poll the chunks table for up to 120s so we don't race the
           # background indexer (each page → split → OpenAI embedding → INSERT).
