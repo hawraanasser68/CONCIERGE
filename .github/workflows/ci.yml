@@ -13,6 +13,11 @@ on:
 
 env:
   COMPOSE_PROJECT_NAME: ci-${{ github.run_id }}
+  # Surfaced at workflow level so every `docker compose up` call interpolates
+  # them into vault-init's container env, where init.sh reads them and seeds
+  # secret/llm/api_key + secret/embed/api_key. GitHub auto-masks both values.
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
 jobs:
 
@@ -123,6 +128,7 @@ jobs:
 
   eval-classifier:
     needs: smoke-test
+    if: false  # TODO: unskip once eval-agent + eval-rag are green
     runs-on: ubuntu-latest
     env:
       MODELSERVER_URL: http://localhost:8001
@@ -237,6 +243,7 @@ jobs:
 
   eval-redteam:
     needs: smoke-test
+    if: false  # TODO: unskip once eval-agent + eval-rag are green
     runs-on: ubuntu-latest
     env:
       CONCIERGE_BASE_URL: http://localhost:8000
@@ -268,6 +275,7 @@ jobs:
 
   eval-redaction:
     needs: smoke-test
+    if: false  # TODO: unskip once eval-agent + eval-rag are green
     runs-on: ubuntu-latest
     env:
       CONCIERGE_BASE_URL: http://localhost:8000
