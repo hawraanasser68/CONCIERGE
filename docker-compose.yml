@@ -58,6 +58,11 @@ services:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: root
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Forwarded to vault/init.sh so the LLM + embed secrets in Vault are
+      # populated from the host env (.env locally, GitHub Actions secrets in CI)
+      # instead of staying empty placeholders.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
       - ./vault:/vault-config:ro
     entrypoint: ["sh", "/vault-config/init.sh"]

@@ -54,14 +54,28 @@ vault kv put secret/db/password password="${POSTGRES_PASSWORD}"
 echo "[vault-init] secret/db/password seeded."
 
 # ── LLM and embedding API keys ────────────────────────────────────────────────
-# Left empty on Day 1 — team fills these before any LLM call is made.
-# Backend logs a warning if these are empty but does not crash on startup.
+# Read from env vars forwarded by docker-compose.yml (ANTHROPIC_API_KEY,
+# OPENAI_API_KEY). Local dev: values come from .env. CI: values come from
+# GitHub Actions secrets via the workflow env block. Empty is allowed —
+# backend logs a warning instead of crashing — but eval-agent / eval-rag
+# need real keys to pass.
 
-vault kv put secret/llm/api_key key=""
-echo "[vault-init] secret/llm/api_key seeded (empty — fill before LLM calls)."
+LLM_KEY="${ANTHROPIC_API_KEY:-}"
+EMBED_KEY="${OPENAI_API_KEY:-}"
 
-vault kv put secret/embed/api_key key=""
-echo "[vault-init] secret/embed/api_key seeded (empty — fill before embed calls)."
+vault kv put secret/llm/api_key key="$LLM_KEY"
+if [ -n "$LLM_KEY" ]; then
+    echo "[vault-init] secret/llm/api_key seeded from ANTHROPIC_API_KEY."
+else
+    echo "[vault-init] secret/llm/api_key seeded (empty — fill before LLM calls)."
+fi
+
+vault kv put secret/embed/api_key key="$EMBED_KEY"
+if [ -n "$EMBED_KEY" ]; then
+    echo "[vault-init] secret/embed/api_key seeded from OPENAI_API_KEY."
+else
+    echo "[vault-init] secret/embed/api_key seeded (empty — fill before embed calls)."
+fi
 
 # ── MinIO credentials ─────────────────────────────────────────────────────────
 # Dev defaults. Change before any real deployment.
