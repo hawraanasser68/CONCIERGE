@@ -127,17 +127,32 @@ def dry_run(examples: list[Example]) -> int:
 # ── Threshold loading ─────────────────────────────────────────────────────────
 
 def _load_threshold() -> float:
+    """Load the classifier macro-F1 gate. Fail loudly if it can't be read.
+
+    A missing/unreadable thresholds file must NOT silently fall back to 0.0:
+    a 0.0 gate passes any model and turns the CI check into a rubber stamp
+    (observed when the eval runs in-container without eval_thresholds.yaml present).
+    """
     thresholds_file = os.environ.get(
         "THRESHOLDS_FILE",
         str(Path(__file__).resolve().parents[3] / "eval_thresholds.yaml"),
     )
-    try:
-        import yaml  # type: ignore[import]
-        with open(thresholds_file) as f:
-            data = yaml.safe_load(f)
-        return float(data.get("classifier", {}).get("macro_f1", 0.0))
-    except Exception:
-        return 0.0
+    if not os.path.exists(thresholds_file):
+        raise FileNotFoundError(
+            f"thresholds file not found: {thresholds_file}. "
+            "Set THRESHOLDS_FILE or mount eval_thresholds.yaml into the eval environment. "
+            "Refusing to default to 0.0 (that would disable the CI gate)."
+        )
+    import yaml  # type: ignore[import]
+    with open(thresholds_file) as f:
+        data = yaml.safe_load(f)
+    classifier_cfg = (data or {}).get("classifier") or {}
+    if "macro_f1" not in classifier_cfg:
+        raise KeyError(
+            f"classifier.macro_f1 missing from {thresholds_file}. "
+            "Refusing to default to 0.0 (that would disable the CI gate)."
+        )
+    return float(classifier_cfg["macro_f1"])
 
 
 # ── Live runner ───────────────────────────────────────────────────────────────
