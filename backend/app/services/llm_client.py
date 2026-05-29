@@ -52,7 +52,7 @@ class LLMClient:
         # If the first message is a system turn, peel it off — Anthropic API takes system
         # as a separate parameter, not as a message role.
         api_messages = messages
-        kwargs: dict = {"model": _MODEL, "max_tokens": max_tokens}
+        kwargs: dict = {"model": _MODEL, "max_tokens": max_tokens, "temperature": 0}
 
         if messages and messages[0].get("role") == "system":
             kwargs["system"] = messages[0]["content"]

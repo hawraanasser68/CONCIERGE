@@ -294,24 +294,38 @@ Scoring guide:
 def _judge_response(
     question: str, ideal_answer: str, response: str, api_key: str
 ) -> dict[str, float]:
+    import re
     import anthropic
     client = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=128,
+        max_tokens=256,
         messages=[{"role": "user", "content": _JUDGE_PROMPT.format(
             question=question, ideal_answer=ideal_answer, response=response,
         )}],
     )
     text = msg.content[0].text.strip()
+    # Strip markdown code fences if the model adds them
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
     try:
         scores = json.loads(text)
-        return {
-            "faithfulness": float(scores.get("faithfulness", 0.0)),
-            "answer_relevancy": float(scores.get("answer_relevancy", 0.0)),
-        }
     except Exception:
-        return {"faithfulness": 0.0, "answer_relevancy": 0.0}
+        # Fallback: extract the first {...} JSON object from the response
+        m = re.search(r"\{[^{}]+\}", text, re.DOTALL)
+        if m:
+            try:
+                scores = json.loads(m.group(0))
+            except Exception:
+                print(f"  [judge] could not parse: {text[:120]!r}", file=sys.stderr)
+                return {"faithfulness": 0.0, "answer_relevancy": 0.0}
+        else:
+            print(f"  [judge] no JSON found in: {text[:120]!r}", file=sys.stderr)
+            return {"faithfulness": 0.0, "answer_relevancy": 0.0}
+    return {
+        "faithfulness": float(scores.get("faithfulness", 0.0)),
+        "answer_relevancy": float(scores.get("answer_relevancy", 0.0)),
+    }
 
 
 def run_answer(triples: list[Triple]) -> tuple[list[AnswerResult], dict[str, float]]:
@@ -375,7 +389,7 @@ def run_answer(triples: list[Triple]) -> tuple[list[AnswerResult], dict[str, flo
                                             response="", faithfulness=0.0, answer_relevancy=0.0))
                 continue
 
-            print("judging...", end=" ", flush=True)
+            print(f"response={response_text[:60]!r} judging...", end=" ", flush=True)
             scores = _judge_response(triple.question, triple.ideal_answer, response_text, api_key)
             results.append(AnswerResult(
                 triple_id=triple.id,
