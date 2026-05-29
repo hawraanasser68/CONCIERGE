@@ -212,7 +212,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install runner Python deps
-        run: pip install httpx pyyaml asyncpg sqlalchemy[asyncio]
+        run: pip install httpx pyyaml asyncpg sqlalchemy[asyncio] anthropic
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env

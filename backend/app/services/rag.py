@@ -56,6 +56,8 @@ def split_into_chunks(text: str) -> list[str]:
         chunk = text[start:break_point].strip()
         if chunk:
             chunks.append(chunk)
+        if break_point >= len(text):
+            break
         start = max(start + 1, break_point - _OVERLAP_CHARS)
     return chunks
 
