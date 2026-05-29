@@ -43,13 +43,27 @@ class EmbeddingsClient:
         response.raise_for_status()
         return response.json()["embedding"]
 
-    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+    async def embed_batch(
+        self, texts: list[str], *, max_concurrency: int = 5
+    ) -> list[list[float]]:
         """Embed multiple texts concurrently (one POST /embed per text).
 
         Preserves input order. The modelserver exposes only POST /embed —
         there is no batch endpoint (see INTERFACES.md).
+
+        Concurrency is capped (default 5) because the modelserver runs a
+        single uvicorn worker; firing 20+ requests in parallel made the
+        later ones queue past backend's shared httpx 10s timeout and abort
+        the entire index_page task with httpcore.PoolTimeout, leaving the
+        chunks table empty.
         """
-        return list(await asyncio.gather(*(self.embed(t) for t in texts)))
+        sem = asyncio.Semaphore(max_concurrency)
+
+        async def _one(text: str) -> list[float]:
+            async with sem:
+                return await self.embed(text)
+
+        return list(await asyncio.gather(*(_one(t) for t in texts)))
 
 
 def get_embeddings_client(request: Request) -> EmbeddingsClient:
