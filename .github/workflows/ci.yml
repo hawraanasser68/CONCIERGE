@@ -151,12 +151,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONCIERGE_BASE_URL: http://localhost:8000
-      DATABASE_URL: postgresql+asyncpg://concierge:changeme@localhost:5432/concierge
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install runner Python deps
-        run: pip install httpx pyyaml asyncpg
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
@@ -172,8 +169,17 @@ jobs:
             -d "{\"widget_id\":\"$WIDGET_ID\",\"origin\":\"http://localhost:3000\"}" \
             | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
           echo "WIDGET_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-      - name: Run agent tool-selection eval (live; tool_accuracy gate)
-        run: python backend/evals/agent_tool_selection/run.py --live
+      - name: Run agent tool-selection eval (live; in backend container)
+        # Run inside the backend container so the script gets sqlalchemy +
+        # asyncpg + httpx + pyyaml from the backend's installed deps without
+        # us having to mirror the full backend pyproject on the runner Python.
+        run: |
+          docker compose exec -T -w /app \
+            -e CONCIERGE_BASE_URL=http://backend:8000 \
+            -e DATABASE_URL=postgresql+asyncpg://concierge:changeme@db:5432/concierge \
+            -e WIDGET_TOKEN="$WIDGET_TOKEN" \
+            -e LLM_API_KEY="$LLM_API_KEY" \
+            backend python evals/agent_tool_selection/run.py --live
       - name: Teardown
         if: always()
         run: docker compose down -v
@@ -183,13 +189,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONCIERGE_BASE_URL: http://localhost:8000
-      MODELSERVER_URL: http://localhost:8001
-      DATABASE_URL: postgresql+asyncpg://concierge:changeme@localhost:5432/concierge
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install runner Python deps
-        run: pip install httpx pyyaml asyncpg
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
@@ -211,10 +213,24 @@ jobs:
             vault kv get -field=token secret/svc/modelserver | tr -d '[:space:]')
           if [ -z "$TOKEN" ]; then echo "ERROR: modelserver token empty"; exit 1; fi
           echo "MODELSERVER_TOKEN=$TOKEN" >> "$GITHUB_ENV"
-      - name: Seed RAG content (CMS pages + chunks)
-        run: python backend/evals/rag/seed.py --endpoint "$CONCIERGE_BASE_URL"
-      - name: Run RAG eval (live; hit_at_5 + faithfulness + answer_relevancy)
-        run: python backend/evals/rag/run.py --all
+      - name: Seed RAG content (CMS pages + chunks; in backend container)
+        # seed.py imports app.models (pgvector, fastapi-users, pydantic-settings)
+        # which only the backend image has fully installed.
+        run: |
+          docker compose exec -T -w /app backend \
+            python evals/rag/seed.py --endpoint http://backend:8000
+      - name: Run RAG eval (live; in backend container)
+        # run.py needs sqlalchemy + asyncpg + httpx + pyyaml for retrieval mode
+        # and the anthropic SDK for the --answer judge; all already in backend.
+        run: |
+          docker compose exec -T -w /app \
+            -e CONCIERGE_BASE_URL=http://backend:8000 \
+            -e MODELSERVER_URL=http://modelserver:8001 \
+            -e MODELSERVER_TOKEN="$MODELSERVER_TOKEN" \
+            -e DATABASE_URL=postgresql+asyncpg://concierge:changeme@db:5432/concierge \
+            -e WIDGET_TOKEN="$WIDGET_TOKEN" \
+            -e LLM_API_KEY="$LLM_API_KEY" \
+            backend python evals/rag/run.py --all
       - name: Teardown
         if: always()
         run: docker compose down -v
