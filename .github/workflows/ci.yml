@@ -225,6 +225,31 @@ jobs:
         run: |
           docker compose exec -T -w /app backend \
             python evals/rag/seed.py --endpoint http://backend:8000
+      - name: Publish CMS pages (trigger chunk indexing)
+        # seed.py only creates rows in cms_pages; the chunks table stays empty
+        # until each page is published, which schedules index_page() as a
+        # background task (chunks + OpenAI embeddings). Without this, the RAG
+        # retrieval eval scores 0% because ground-truth chunk refs miss.
+        env:
+          DEV_ADMIN_PASSWORD: ${{ secrets.DEV_ADMIN_PASSWORD }}
+        run: |
+          ADMIN_JWT=$(curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/auth/login" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "username=admin@bloom-florista.test" \
+            --data-urlencode "password=$DEV_ADMIN_PASSWORD" \
+            | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+          if [ -z "$ADMIN_JWT" ]; then echo "ERROR: admin login failed"; exit 1; fi
+          PAGE_IDS=$(curl -fsS "$CONCIERGE_BASE_URL/api/v1/cms/pages" \
+            -H "Authorization: Bearer $ADMIN_JWT" \
+            | python -c "import sys,json;[print(p['id']) for p in json.load(sys.stdin)]")
+          for PAGE_ID in $PAGE_IDS; do
+            curl -fsS -X POST "$CONCIERGE_BASE_URL/api/v1/cms/pages/$PAGE_ID/publish" \
+              -H "Authorization: Bearer $ADMIN_JWT" > /dev/null
+            echo "published $PAGE_ID"
+          done
+          # Give the index_page background task time to embed + INSERT chunks
+          # before the retrieval eval queries the chunks table.
+          sleep 20
       - name: Run RAG eval (live; in backend container)
         # run.py needs sqlalchemy + asyncpg + httpx + pyyaml for retrieval mode
         # and the anthropic SDK for the --answer judge; all already in backend.
