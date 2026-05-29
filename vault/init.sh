@@ -29,22 +29,33 @@ vault secrets enable -version=2 -path=secret kv 2>/dev/null || true
 # Random 32-byte hex tokens. Owner C's modelserver and guardrails read these
 # to validate that inbound calls come from the backend, not from the internet.
 
-MODELSERVER_TOKEN=$(head -c 32 /dev/urandom | xxd -p)
-GUARDRAILS_TOKEN=$(head -c 32 /dev/urandom | xxd -p)
+if ! vault kv get secret/svc/modelserver > /dev/null 2>&1; then
+  MODELSERVER_TOKEN=$(head -c 32 /dev/urandom | xxd -p)
+  vault kv put secret/svc/modelserver token="${MODELSERVER_TOKEN}"
+  echo "[vault-init] secret/svc/modelserver seeded."
+else
+  echo "[vault-init] secret/svc/modelserver already exists, skipping."
+fi
 
-vault kv put secret/svc/modelserver token="${MODELSERVER_TOKEN}"
-echo "[vault-init] secret/svc/modelserver seeded."
-
-vault kv put secret/svc/guardrails token="${GUARDRAILS_TOKEN}"
-echo "[vault-init] secret/svc/guardrails seeded."
+if ! vault kv get secret/svc/guardrails > /dev/null 2>&1; then
+  GUARDRAILS_TOKEN=$(head -c 32 /dev/urandom | xxd -p)
+  vault kv put secret/svc/guardrails token="${GUARDRAILS_TOKEN}"
+  echo "[vault-init] secret/svc/guardrails seeded."
+else
+  echo "[vault-init] secret/svc/guardrails already exists, skipping."
+fi
 
 # ── Widget signing key ────────────────────────────────────────────────────────
 # HS256 secret for signing per-widget JWTs (1h TTL).
 # Owner D's loader POSTs to /api/v1/widget/token; this key signs the response.
 
-WIDGET_SIGNING_KEY=$(head -c 32 /dev/urandom | xxd -p)
-vault kv put secret/widget/signing_key key="${WIDGET_SIGNING_KEY}"
-echo "[vault-init] secret/widget/signing_key seeded."
+if ! vault kv get secret/widget/signing_key > /dev/null 2>&1; then
+  WIDGET_SIGNING_KEY=$(head -c 32 /dev/urandom | xxd -p)
+  vault kv put secret/widget/signing_key key="${WIDGET_SIGNING_KEY}"
+  echo "[vault-init] secret/widget/signing_key seeded."
+else
+  echo "[vault-init] secret/widget/signing_key already exists, skipping."
+fi
 
 # ── Database password ─────────────────────────────────────────────────────────
 # Mirrors POSTGRES_PASSWORD from the environment so the backend fetches it

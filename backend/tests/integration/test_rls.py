@@ -22,6 +22,8 @@ import uuid
 
 import pytest
 
+pytestmark = pytest.mark.asyncio(loop_scope="module")
+
 try:
     import asyncpg  # type: ignore[import]
     ASYNCPG_AVAILABLE = True
@@ -78,7 +80,7 @@ async def rls_setup(pg):
     await pg.execute(f"ALTER TABLE {_TABLE} FORCE ROW LEVEL SECURITY")
     await pg.execute(f"""
         CREATE POLICY tenant_isolation ON {_TABLE}
-        USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid)
+        USING (tenant_id = NULLIF(current_setting('app.tenant_id', TRUE), '')::uuid)
     """)
 
     # Create the non-superuser role if it does not exist.
@@ -113,7 +115,7 @@ async def rls_setup(pg):
 async def test_tenant_a_sees_only_own_rows(pg):
     """With app.tenant_id = TENANT_A, only TENANT_A rows are returned."""
     async with pg.transaction():
-        await pg.execute(f"SET ROLE {_ROLE}")
+        await pg.execute(f"SET LOCAL ROLE {_ROLE}")
         await pg.execute(
             "SELECT set_config('app.tenant_id', $1, TRUE)", str(TENANT_A)
         )
@@ -130,7 +132,7 @@ async def test_tenant_a_sees_only_own_rows(pg):
 async def test_tenant_b_sees_only_own_rows(pg):
     """With app.tenant_id = TENANT_B, only TENANT_B rows are returned."""
     async with pg.transaction():
-        await pg.execute(f"SET ROLE {_ROLE}")
+        await pg.execute(f"SET LOCAL ROLE {_ROLE}")
         await pg.execute(
             "SELECT set_config('app.tenant_id', $1, TRUE)", str(TENANT_B)
         )
@@ -151,7 +153,7 @@ async def test_missing_tenant_context_returns_no_rows(pg):
     A bug that forgets to call set_tenant_rls() results in empty reads, not a data leak.
     """
     async with pg.transaction():
-        await pg.execute(f"SET ROLE {_ROLE}")
+        await pg.execute(f"SET LOCAL ROLE {_ROLE}")
         await pg.execute("SELECT set_config('app.tenant_id', '', TRUE)")
         rows = await pg.fetch(f"SELECT tenant_id FROM {_TABLE}")
 
