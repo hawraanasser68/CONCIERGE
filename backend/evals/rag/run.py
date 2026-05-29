@@ -294,8 +294,8 @@ Scoring guide:
 def _judge_response(
     question: str, ideal_answer: str, response: str, api_key: str
 ) -> dict[str, float]:
-    import re
     import anthropic
+    import re
     client = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model="claude-haiku-4-5-20251001",
