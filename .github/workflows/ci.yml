@@ -151,17 +151,42 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONCIERGE_BASE_URL: http://localhost:8000
+      MODELSERVER_URL: http://localhost:8001
       DATABASE_URL: postgresql+asyncpg://concierge:changeme@localhost:5432/concierge
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Install runner Python deps
-        run: pip install httpx pyyaml asyncpg
+        run: pip install httpx pyyaml asyncpg "sqlalchemy[asyncio]"
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
           docker compose up -d --wait --timeout 180
           docker compose exec -T -w /app backend python -m scripts.seed_dev_data
+      - name: Push API keys to Vault and reload services
+        run: |
+          docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+            vault kv put secret/embed/api_key key="$OPENAI_API_KEY"
+          docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+            vault kv put secret/llm/api_key key="$LLM_API_KEY"
+          docker compose restart modelserver backend
+          sleep 20
+      - name: Read modelserver token from Vault
+        run: |
+          TOKEN=$(docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+            vault kv get -field=token secret/svc/modelserver | tr -d '[:space:]')
+          if [ -z "$TOKEN" ]; then echo "ERROR: modelserver token empty"; exit 1; fi
+          echo "MODELSERVER_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Seed RAG content (CMS pages + chunks)
+        run: |
+          docker compose exec -T \
+            -e MODELSERVER_TOKEN="$MODELSERVER_TOKEN" \
+            -w /app backend \
+            python evals/rag/seed.py
       - name: Generate widget token (Tenant A)
         run: |
           WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
@@ -186,15 +211,26 @@ jobs:
       MODELSERVER_URL: http://localhost:8001
       DATABASE_URL: postgresql+asyncpg://concierge:changeme@localhost:5432/concierge
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Install runner Python deps
-        run: pip install httpx pyyaml asyncpg
+        run: pip install httpx pyyaml asyncpg sqlalchemy[asyncio] anthropic
       - name: Start stack + seed widgets
         run: |
           cp .env.example .env
           docker compose up -d --wait --timeout 180
           docker compose exec -T -w /app backend python -m scripts.seed_dev_data
+      - name: Push API keys to Vault and reload services
+        run: |
+          docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+            vault kv put secret/embed/api_key key="$OPENAI_API_KEY"
+          docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+            vault kv put secret/llm/api_key key="$LLM_API_KEY"
+          docker compose restart modelserver backend
+          sleep 20
       - name: Generate widget token (Tenant A)
         run: |
           WIDGET_ID=$(docker compose exec -T db psql -U concierge -d concierge -tAc \
@@ -207,12 +243,17 @@ jobs:
           echo "WIDGET_TOKEN=$TOKEN" >> "$GITHUB_ENV"
       - name: Read modelserver token from Vault
         run: |
-          TOKEN=$(docker compose exec -T -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
+          TOKEN=$(docker compose exec -T \
+            -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_TOKEN=root vault \
             vault kv get -field=token secret/svc/modelserver | tr -d '[:space:]')
           if [ -z "$TOKEN" ]; then echo "ERROR: modelserver token empty"; exit 1; fi
           echo "MODELSERVER_TOKEN=$TOKEN" >> "$GITHUB_ENV"
       - name: Seed RAG content (CMS pages + chunks)
-        run: python backend/evals/rag/seed.py --endpoint "$CONCIERGE_BASE_URL"
+        run: |
+          docker compose exec -T \
+            -e MODELSERVER_TOKEN="$MODELSERVER_TOKEN" \
+            -w /app backend \
+            python evals/rag/seed.py
       - name: Run RAG eval (live; hit_at_5 + faithfulness + answer_relevancy)
         run: python backend/evals/rag/run.py --all
       - name: Teardown

@@ -273,6 +273,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
     # Add vector column separately — pgvector type not expressible via sa.Column()
     conn.execute(sa.text("ALTER TABLE chunks ADD COLUMN embedding vector(768)"))

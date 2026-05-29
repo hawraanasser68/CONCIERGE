@@ -28,6 +28,22 @@ def _is_valid_contact(contact: str) -> bool:
     return bool(_EMAIL_RE.match(contact)) or bool(_E164_RE.match(cleaned))
 
 
+def _extract_contact(raw: str) -> str:
+    """Pull just the email or E.164 phone out of a string that may include surrounding text.
+
+    The LLM sometimes passes 'you can reach me at user@example.com' or
+    'phone: +14155550177' instead of the bare value. This normalises it so
+    validation doesn't reject an otherwise valid contact.
+    """
+    email_match = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", raw)
+    if email_match and _EMAIL_RE.match(email_match.group(0)):
+        return email_match.group(0)
+    phone_match = re.search(r"\+[1-9]\d{6,14}", re.sub(r"[\s\-]", "", raw))
+    if phone_match:
+        return phone_match.group(0)
+    return raw
+
+
 async def capture_lead(
     name: str,
     contact: str,
@@ -48,6 +64,11 @@ async def capture_lead(
 
     if not name:
         return {"captured": False, "reason": "Name is required"}
+
+    # Normalise: if the LLM included surrounding text (e.g. "reach me at user@example.com"),
+    # extract just the email/phone so validation doesn't reject a valid contact.
+    if not _is_valid_contact(contact):
+        contact = _extract_contact(contact)
 
     if not _is_valid_contact(contact):
         return {
