@@ -139,6 +139,7 @@ async def _lead_workflow(
     session: AsyncSession,
     redis: aioredis.Redis,
     llm_client: LLMClient,
+    classifier_score: float | None = None,
 ) -> str:
     from app.tools.capture_lead import capture_lead
 
@@ -176,7 +177,7 @@ async def _lead_workflow(
                 session_id=session_id,
                 session=session,
                 redis=redis,
-                classifier_score=classify_result.confidence,
+                classifier_score=classifier_score,
             )
             if result.get("captured"):
                 return "Thank you! I've noted your details and our team will be in touch shortly."
@@ -295,7 +296,8 @@ async def route(
 
     if intent == "lead" and high_confidence:
         return await _lead_workflow(
-            message, history, agent_config, tenant_id, session_id, session, redis, llm_client
+            message, history, agent_config, tenant_id, session_id, session, redis, llm_client,
+            classifier_score=confidence,
         )
 
     if intent == "escalate" and high_confidence:
