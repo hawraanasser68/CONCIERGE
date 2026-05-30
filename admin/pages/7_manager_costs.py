@@ -10,6 +10,19 @@ import streamlit as st
 from lib import api_client
 from lib.sidebar import render_user_panel
 
+# Anthropic Claude Sonnet 4.6 public list pricing (USD per million tokens).
+# Update these constants when the model or pricing changes.
+LLM_INPUT_USD_PER_MTOK = 3.0
+LLM_OUTPUT_USD_PER_MTOK = 15.0
+
+
+def llm_cost_usd(tokens_in: int, tokens_out: int) -> float:
+    return (
+        tokens_in * LLM_INPUT_USD_PER_MTOK / 1_000_000
+        + tokens_out * LLM_OUTPUT_USD_PER_MTOK / 1_000_000
+    )
+
+
 if "token" not in st.session_state:
     st.warning("Sign in from the home page first.")
     st.stop()
@@ -58,11 +71,21 @@ total_out      = sum(r.get("llm_tokens_out", 0) for r in rows)
 total_embed    = sum(r.get("embed_tokens", 0)   for r in rows)
 total_classify = sum(r.get("classify_calls", 0) for r in rows)
 
-k1, k2, k3, k4 = st.columns(4)
+total_llm_cost = llm_cost_usd(total_in, total_out)
+
+k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("LLM tokens in",  f"{total_in:,}")
 k2.metric("LLM tokens out", f"{total_out:,}")
-k3.metric("Embed tokens",   f"{total_embed:,}")
-k4.metric("Classify calls", f"{total_classify:,}")
+k3.metric(
+    "LLM cost (USD)",
+    f"${total_llm_cost:,.4f}",
+    help=(
+        f"USD figure uses public Anthropic list pricing for `claude-sonnet-4-6`: "
+        f"${LLM_INPUT_USD_PER_MTOK}/M input + ${LLM_OUTPUT_USD_PER_MTOK}/M output."
+    ),
+)
+k4.metric("Embed tokens",   f"{total_embed:,}")
+k5.metric("Classify calls", f"{total_classify:,}")
 
 st.divider()
 
@@ -74,6 +97,7 @@ table_rows = [
         "Name":           r.get("name"),
         "LLM tokens in":  f"{r.get('llm_tokens_in', 0):,}",
         "LLM tokens out": f"{r.get('llm_tokens_out', 0):,}",
+        "LLM cost (USD)": f"${llm_cost_usd(r.get('llm_tokens_in', 0), r.get('llm_tokens_out', 0)):,.4f}",
         "Embed tokens":   f"{r.get('embed_tokens', 0):,}",
         "Classify calls": f"{r.get('classify_calls', 0):,}",
     }

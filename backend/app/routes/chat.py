@@ -132,9 +132,14 @@ async def send_message(
     )
 
     # ── 6. Route → workflow or agent ──────────────────────────────────────────
+    # Agent + workflow receive the ORIGINAL message so capture_lead can validate
+    # real contact info (email/E.164 phone) and rag_search can match real terms.
+    # The redacted copy is only for storage/logs ("PII never leaves the service"
+    # is about our own sinks, not the upstream LLM provider, which sees the real
+    # input by necessity).
     try:
         response_text = await route(
-            message=guard.redacted_message,
+            message=body.message,
             classify_result=classify_result,
             tenant_id=tenant_id,
             session_id=session_id,
@@ -151,19 +156,24 @@ async def send_message(
         response_text = _ROUTING_ERROR
 
     # ── 7. Guardrails output check (fail closed) ───────────────────────────────
+    # The redacted version goes into Redis/logs ("PII never leaves the service"),
+    # but the original response goes back to the visitor so example/format text
+    # (e.g. a phone-format hint) isn't mangled. If the sidecar says blocked, both
+    # the visible reply and the stored copy collapse to the same safe block message.
     try:
         out_guard = await guardrails.check_output(response_text, tenant_id, session_id)
         if not out_guard.allowed:
             response_text = _OUTPUT_BLOCKED
+            stored_response = _OUTPUT_BLOCKED
         else:
-            response_text = out_guard.redacted_message
+            stored_response = out_guard.redacted_message
     except GuardrailsUnavailableError:
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
 
     # ── 8. Persist assistant turn + increment counter ─────────────────────────
     await append_message(
         redis, tenant_id, session_id,
-        role="assistant", content=response_text,
+        role="assistant", content=stored_response,
     )
     await increment_rate_limit(redis, tenant_id, "chat", session_id=session_id)
 
