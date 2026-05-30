@@ -33,5 +33,8 @@ async def escalate(
         reason=reason,
     )
     await session.flush()
+    # Same reason as capture_lead: get_session() doesn't auto-commit, so a
+    # bare flush rolls back at request end. Commit so the escalation persists.
+    await session.commit()
 
     return {"escalated": True, "ticket_id": str(esc.id)}

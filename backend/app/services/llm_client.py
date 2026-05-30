@@ -48,7 +48,15 @@ class LLMClient:
         tools: list[dict] | None = None,
         max_tokens: int = 1024,
         tenant_id: uuid.UUID | None = None,  # reserved for cost attribution by the caller
+        tool_choice: dict | None = None,
     ) -> LLMResponse:
+        """
+        tool_choice controls how strictly the model must use tools:
+          None / {"type": "auto"}            → model decides (default)
+          {"type": "any"}                    → model must call SOME tool
+          {"type": "tool", "name": "X"}      → model is forced to call tool X
+        Used by router.py workflows that require a specific tool to fire.
+        """
         # If the first message is a system turn, peel it off — Anthropic API takes system
         # as a separate parameter, not as a message role.
         api_messages = messages
@@ -62,6 +70,8 @@ class LLMClient:
 
         if tools:
             kwargs["tools"] = tools
+        if tool_choice:
+            kwargs["tool_choice"] = tool_choice
 
         response = await self._client.messages.create(**kwargs)
 

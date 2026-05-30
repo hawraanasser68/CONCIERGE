@@ -184,6 +184,7 @@ if role == "tenant_admin":
         st.Page("pages/2_cms.py",       title="CMS",        icon="📝"),
         st.Page("pages/3_guardrails.py",title="Guardrails", icon="🛡️"),
         st.Page("pages/4_leads.py",     title="Leads",      icon="📥"),
+        st.Page("pages/escalations.py", title="Escalations", icon="🚨"),
         st.Page("pages/5_debug.py",     title="Debug",      icon="🔧"),
     ]
 elif role == "tenant_manager":

@@ -105,6 +105,7 @@ async def _dispatch(
     session: AsyncSession,
     redis: aioredis.Redis,
     embeddings_client: EmbeddingsClient,
+    classifier_score: float | None = None,
 ) -> str:
     """Route a tool call to the matching Python function. Returns JSON string."""
     from app.tools.capture_lead import capture_lead
@@ -127,6 +128,7 @@ async def _dispatch(
             session_id=session_id,
             session=session,
             redis=redis,
+            classifier_score=classifier_score,
         )
     elif name == "escalate":
         result = await escalate(
@@ -158,6 +160,7 @@ async def run_agent(
     agent_config: AgentConfig,
     system_prompt: str,
     max_iterations: int | None = None,
+    classifier_score: float | None = None,
 ) -> str:
     """Bounded tool-calling loop.
 
@@ -199,33 +202,39 @@ async def run_agent(
             tokens_out=response.usage.output_tokens,
         )
 
-        if response.stop_reason == "end_turn" or not response.tool_use:
+        # Find EVERY tool_use block in the assistant turn. Anthropic can return
+        # multiple tool calls in a single turn, and the API requires one
+        # tool_result per tool_use in the immediately-following user message —
+        # otherwise the next call fails with "tool_use ids were found without
+        # tool_result blocks immediately after."
+        tool_use_blocks = [b for b in response.raw_content if b.get("type") == "tool_use"]
+        if response.stop_reason == "end_turn" or not tool_use_blocks:
             return response.content
 
-        # Append the assistant turn (may include text + tool_use content blocks)
+        # Append the assistant turn (text + ALL tool_use blocks, verbatim).
         messages.append({"role": "assistant", "content": response.raw_content})
 
-        tool_result_str = await _dispatch(
-            name=response.tool_use["name"],
-            inputs=response.tool_use["input"],
-            tenant_id=tenant_id,
-            session_id=session_id,
-            session=session,
-            redis=redis,
-            embeddings_client=embeddings_client,
-        )
+        # Dispatch each tool, collect paired tool_result blocks.
+        tool_results: list[dict] = []
+        for block in tool_use_blocks:
+            tool_result_str = await _dispatch(
+                name=block["name"],
+                inputs=block["input"],
+                tenant_id=tenant_id,
+                session_id=session_id,
+                session=session,
+                redis=redis,
+                embeddings_client=embeddings_client,
+                classifier_score=classifier_score,
+            )
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": block["id"],
+                "content": tool_result_str,
+            })
 
-        # Tool result in Anthropic's required format
-        messages.append({
-            "role": "user",
-            "content": [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": response.tool_use["id"],
-                    "content": tool_result_str,
-                }
-            ],
-        })
+        # Single user message containing ALL tool_results, in the same order.
+        messages.append({"role": "user", "content": tool_results})
 
     log.warning(
         "agent_iteration_cap_reached",

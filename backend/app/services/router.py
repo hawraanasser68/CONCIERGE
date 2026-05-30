@@ -148,8 +148,15 @@ async def _lead_workflow(
         messages.extend(_history_to_messages(history))
         messages.append({"role": "user", "content": message})
 
+        # Force the model to call capture_lead — without this, Claude often chooses
+        # to reply with text ("thanks, we'll get back to you") and never invokes the
+        # tool, so no row lands in the leads table.
         response = await llm_client.complete(
-            messages=messages, tools=[_CAPTURE_LEAD_TOOL], max_tokens=512, tenant_id=tenant_id
+            messages=messages,
+            tools=[_CAPTURE_LEAD_TOOL],
+            max_tokens=512,
+            tenant_id=tenant_id,
+            tool_choice={"type": "tool", "name": "capture_lead"},
         )
         await record_llm_usage(
             session, tenant_id, response.usage.input_tokens, response.usage.output_tokens
@@ -169,6 +176,7 @@ async def _lead_workflow(
                 session_id=session_id,
                 session=session,
                 redis=redis,
+                classifier_score=classify_result.confidence,
             )
             if result.get("captured"):
                 return "Thank you! I've noted your details and our team will be in touch shortly."
@@ -203,8 +211,13 @@ async def _escalate_workflow(
     messages.extend(_history_to_messages(history))
     messages.append({"role": "user", "content": message})
 
+    # Force the escalate tool call for the same reason as capture_lead above.
     response = await llm_client.complete(
-        messages=messages, tools=[_ESCALATE_TOOL], max_tokens=256, tenant_id=tenant_id
+        messages=messages,
+        tools=[_ESCALATE_TOOL],
+        max_tokens=256,
+        tenant_id=tenant_id,
+        tool_choice={"type": "tool", "name": "escalate"},
     )
     await record_llm_usage(
         session, tenant_id, response.usage.input_tokens, response.usage.output_tokens
@@ -302,4 +315,5 @@ async def route(
         embeddings_client=embeddings_client,
         agent_config=agent_config,
         system_prompt=system_prompt,
+        classifier_score=classify_result.confidence,
     )

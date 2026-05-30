@@ -35,15 +35,23 @@ with st.expander("Provision a new tenant"):
             "Slug",
             help="URL-safe identifier, lowercase + hyphens. e.g. 'bloom-florista'",
         )
+        first_admin_email = st.text_input(
+            "First admin email",
+            help="The invite token will be issued for this email; they redeem it at /auth/register.",
+        )
         submitted = st.form_submit_button("Provision")
 
     if submitted:
-        if not name or not slug:
-            st.error("Name and slug are required.")
+        if not name or not slug or not first_admin_email:
+            st.error("Name, slug, and first admin email are required.")
         else:
             response = api_client.post(
                 "/api/v1/platform/tenants",
-                json={"name": name, "slug": slug},
+                json={
+                    "name": name,
+                    "slug": slug,
+                    "first_admin_email": first_admin_email,
+                },
             )
             if response.status_code in (200, 201):
                 data = response.json()

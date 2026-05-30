@@ -52,6 +52,7 @@ async def capture_lead(
     session_id: str,            # from verified JWT
     session: AsyncSession,
     redis: aioredis.Redis,
+    classifier_score: float | None = None,  # routed in by _lead_workflow for triage
 ) -> dict:
     """Validate, rate-limit, and persist a lead row.
 
@@ -86,8 +87,13 @@ async def capture_lead(
         visitor_name=name,          # visitor_name column, NOT name
         contact=contact,
         intent=intent,
+        classifier_score=classifier_score,
     )
     await session.flush()
+    # MUST commit — get_session() does not auto-commit, so a bare flush leaves
+    # the INSERT inside an open transaction that gets rolled back when the
+    # request scope closes. Without this line, leads silently never persist.
+    await session.commit()
 
     await increment_rate_limit(redis, tenant_id, "capture_lead", session_id=session_id)
 
