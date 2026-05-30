@@ -43,7 +43,7 @@ with st.expander("Create a new page"):
                     "title": title,
                     "slug": slug,
                     "content": content,
-                    "published": published,
+                    "is_published": published,
                 },
             )
             if response.status_code in (200, 201):
@@ -58,7 +58,7 @@ if not pages:
     st.info("No CMS pages yet — create one above.")
 
 for page in pages:
-    badge = "🟢 published" if page.get("published") else "⚫ draft"
+    badge = "🟢 published" if page.get("is_published") else "⚫ draft"
     indexing = page.get("indexing_status")
     indexing_badge = " · 🔄 indexing in progress" if indexing == "pending" else ""
     with st.expander(f"{page.get('title', 'untitled')} ({page.get('slug', '?')}) — {badge}{indexing_badge}"):
@@ -73,7 +73,7 @@ for page in pages:
             )
             new_published = st.checkbox(
                 "Published",
-                value=bool(page.get("published")),
+                value=bool(page.get("is_published")),
                 key=f"p-{page['id']}",
             )
             col_save, col_delete = st.columns(2)
@@ -89,7 +89,7 @@ for page in pages:
                     "title": new_title,
                     "slug": new_slug,
                     "content": new_content,
-                    "published": new_published,
+                    "is_published": new_published,
                 },
             )
             if r.status_code == 200:
